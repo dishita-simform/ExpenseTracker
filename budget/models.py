@@ -67,9 +67,9 @@ class Expense(models.Model):
         ordering = ['-date', '-created_at']
 
 class IncomeSource(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
     name = models.CharField(max_length=100)
-    icon = models.CharField(max_length=50, default='money-bill-wave')
-    color = models.CharField(max_length=50, default='success')
+    icon = models.CharField(max_length=50, default='money-bill-wave')  # FontAwesome icon name
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -79,23 +79,12 @@ class IncomeSource(models.Model):
     class Meta:
         ordering = ['name']
 
-    @classmethod
-    def get_default_source(cls):
-        source, created = cls.objects.get_or_create(
-            name='Other',
-            defaults={
-                'icon': 'money-bill-wave',
-                'color': 'success'
-            }
-        )
-        return source.id
-
 class Income(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='incomes')
-    source = models.ForeignKey(IncomeSource, on_delete=models.CASCADE, default=IncomeSource.get_default_source)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    source = models.ForeignKey(IncomeSource, on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     description = models.TextField(blank=True)
-    date = models.DateField(default=timezone.now)
+    date = models.DateField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
