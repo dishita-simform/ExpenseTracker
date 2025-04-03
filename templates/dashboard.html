@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load budget_filters %}
 
 {% block title %}Dashboard - Budget Tracker{% endblock %}
 
@@ -16,62 +17,69 @@
     </div>
 
     <!-- Stats Cards -->
-    <div class="row g-3 mb-4">
-        <div class="col-12 col-md-6 col-xl-3">
+    <div class="row g-4 mb-4">
+        <!-- Total Balance -->
+        <div class="col-12 col-sm-6 col-xl-3">
             <div class="card stat-card">
                 <div class="card-body">
-                    <div class="d-flex align-items-center">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Total Balance</h6>
+                            <h3 class="mb-0">₹{{ total_balance }}</h3>
+                        </div>
                         <div class="stat-icon bg-primary">
                             <i class="fas fa-wallet"></i>
                         </div>
-                        <div class="ms-3">
-                            <h6 class="card-subtitle text-muted mb-1">Total Balance</h6>
-                            <h3 class="card-title mb-0">₹{{ total_balance|default:"0.00" }}</h3>
-                        </div>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-12 col-md-6 col-xl-3">
+
+        <!-- Income -->
+        <div class="col-12 col-sm-6 col-xl-3">
             <div class="card stat-card">
                 <div class="card-body">
-                    <div class="d-flex align-items-center">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Income</h6>
+                            <h3 class="mb-0">₹{{ total_income }}</h3>
+                        </div>
                         <div class="stat-icon bg-success">
                             <i class="fas fa-arrow-down"></i>
                         </div>
-                        <div class="ms-3">
-                            <h6 class="card-subtitle text-muted mb-1">Income</h6>
-                            <h3 class="card-title mb-0">₹{{ total_income|default:"0.00" }}</h3>
-                        </div>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-12 col-md-6 col-xl-3">
+
+        <!-- Expenses -->
+        <div class="col-12 col-sm-6 col-xl-3">
             <div class="card stat-card">
                 <div class="card-body">
-                    <div class="d-flex align-items-center">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Expenses</h6>
+                            <h3 class="mb-0">₹{{ total_expenses }}</h3>
+                        </div>
                         <div class="stat-icon bg-danger">
                             <i class="fas fa-arrow-up"></i>
                         </div>
-                        <div class="ms-3">
-                            <h6 class="card-subtitle text-muted mb-1">Expenses</h6>
-                            <h3 class="card-title mb-0">₹{{ total_expenses|default:"0.00" }}</h3>
-                        </div>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-12 col-md-6 col-xl-3">
+
+        <!-- Savings -->
+        <div class="col-12 col-sm-6 col-xl-3">
             <div class="card stat-card">
                 <div class="card-body">
-                    <div class="d-flex align-items-center">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Savings</h6>
+                            <h3 class="mb-0">₹{{ total_savings }}</h3>
+                        </div>
                         <div class="stat-icon bg-info">
                             <i class="fas fa-piggy-bank"></i>
-                        </div>
-                        <div class="ms-3">
-                            <h6 class="card-subtitle text-muted mb-1">Savings</h6>
-                            <h3 class="card-title mb-0">₹{{ total_savings|default:"0.00" }}</h3>
                         </div>
                     </div>
                 </div>
@@ -103,24 +111,30 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for expense in recent_expenses %}
+                                {% for transaction in recent_transactions %}
                                 <tr>
                                     <td class="ps-4">
                                         <div class="d-flex align-items-center">
-                                            <div class="category-icon me-2 bg-{{ expense.category.color }}">
-                                                <i class="fas fa-{{ expense.category.icon }}"></i>
+                                            <div class="category-icon me-2 bg-{{ transaction.category.color }}">
+                                                <i class="fas fa-{{ transaction.category.icon }}"></i>
                                             </div>
-                                            {{ expense.category.name }}
+                                            {{ transaction.category.name }}
                                         </div>
                                     </td>
-                                    <td>{{ expense.description }}</td>
-                                    <td>{{ expense.date|date:"M d, Y" }}</td>
-                                    <td class="text-end pe-4">₹{{ expense.amount }}</td>
+                                    <td>{{ transaction.description }}</td>
+                                    <td>{{ transaction.date|date:"M d, Y" }}</td>
                                     <td class="text-end pe-4">
-                                        <button class="btn btn-sm btn-light me-2" onclick="editTransaction({{ expense.id }})">
+                                        {% if transaction.amount < 0 %}
+                                        <span class="text-danger">₹{{ transaction.amount|abs_value }}</span>
+                                        {% else %}
+                                        <span class="text-success">₹{{ transaction.amount }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end pe-4">
+                                        <button class="btn btn-sm btn-primary" onclick="editTransaction({{ transaction.id }})">
                                             <i class="fas fa-edit"></i>
                                         </button>
-                                        <button class="btn btn-sm btn-light text-danger" onclick="deleteTransaction({{ expense.id }})">
+                                        <button class="btn btn-sm btn-danger" onclick="deleteTransaction({{ transaction.id }})">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </td>
@@ -156,7 +170,7 @@
                     <div class="budget-item mb-4">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <div class="d-flex align-items-center">
-                                <div class="category-icon me-2 bg-{{ category.color }}">
+                                <div class="category-icon me-2 bg-gradient-{{ category.color }}">
                                     <i class="fas fa-{{ category.icon }}"></i>
                                 </div>
                                 <span>{{ category.name }}</span>
@@ -166,8 +180,8 @@
                                 <small class="text-muted">/ ₹{{ category.budget }}</small>
                             </div>
                         </div>
-                        <div class="progress" style="height: 8px;">
-                            <div class="progress-bar bg-{{ category.color }}" 
+                        <div class="progress">
+                            <div class="progress-bar bg-gradient-{{ category.color }}" 
                                  role="progressbar" 
                                  style="width: {{ category.percentage }}%"
                                  aria-valuenow="{{ category.percentage }}" 
@@ -186,6 +200,55 @@
                         </div>
                     </div>
                     {% endfor %}
+                    
+                    <!-- Pagination Controls -->
+                    {% if pagination.total_pages > 1 %}
+                    <div class="d-flex justify-content-center mt-4">
+                        <nav aria-label="Budget categories pagination">
+                            <ul class="pagination pagination-sm">
+                                {% if pagination.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ pagination.previous_page }}" aria-label="Previous">
+                                        <span aria-hidden="true">&laquo;</span>
+                                    </a>
+                                </li>
+                                {% else %}
+                                <li class="page-item disabled">
+                                    <a class="page-link" href="#" aria-label="Previous">
+                                        <span aria-hidden="true">&laquo;</span>
+                                    </a>
+                                </li>
+                                {% endif %}
+                                
+                                {% for page_num in pagination.page_range %}
+                                    {% if page_num == pagination.current_page %}
+                                    <li class="page-item active">
+                                        <a class="page-link" href="?page={{ page_num }}">{{ page_num }}</a>
+                                    </li>
+                                    {% else %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_num }}">{{ page_num }}</a>
+                                    </li>
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                {% if pagination.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ pagination.next_page }}" aria-label="Next">
+                                        <span aria-hidden="true">&raquo;</span>
+                                    </a>
+                                </li>
+                                {% else %}
+                                <li class="page-item disabled">
+                                    <a class="page-link" href="#" aria-label="Next">
+                                        <span aria-hidden="true">&raquo;</span>
+                                    </a>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -236,17 +299,60 @@
     </div>
 </div>
 
+<!-- Edit Transaction Modal -->
+<div class="modal fade" id="editTransactionModal" tabindex="-1" role="dialog" aria-labelledby="editTransactionModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editTransactionModalLabel">Edit Transaction</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form id="editTransactionForm" method="POST">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="category">Category</label>
+                        <select class="form-control" id="category" name="category" required>
+                            {% for category in categories %}
+                            <option value="{{ category.id }}">{{ category.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="amount">Amount</label>
+                        <input type="number" class="form-control" id="amount" name="amount" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="description">Description</label>
+                        <input type="text" class="form-control" id="description" name="description" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="date">Date</label>
+                        <input type="date" class="form-control" id="date" name="date" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Save changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
 <style>
     .stat-card {
-        transition: transform 0.2s;
-        border: none;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        transition: transform 0.3s ease;
     }
-
+    
     .stat-card:hover {
-        transform: translateY(-2px);
+        transform: translateY(-5px);
     }
-
+    
     .stat-icon {
         width: 48px;
         height: 48px;
@@ -257,7 +363,7 @@
         color: white;
         font-size: 1.25rem;
     }
-
+    
     .category-icon {
         width: 32px;
         height: 32px;
@@ -266,79 +372,61 @@
         align-items: center;
         justify-content: center;
         color: white;
-        font-size: 1rem;
+        font-size: 0.875rem;
     }
-
-    .bg-primary {
-        background: var(--gradient-primary) !important;
-    }
-
-    .bg-success {
-        background: var(--gradient-success) !important;
-    }
-
-    .bg-danger {
-        background: var(--gradient-danger) !important;
-    }
-
-    .bg-info {
-        background: linear-gradient(135deg, #0ea5e9 0%, #3b82f6 100%) !important;
-    }
-
-    .bg-food {
-        background: linear-gradient(135deg, #f97316 0%, #f59e0b 100%) !important;
-    }
-
-    .bg-transport {
-        background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%) !important;
-    }
-
-    .bg-shopping {
-        background: linear-gradient(135deg, #ec4899 0%, #f43f5e 100%) !important;
-    }
-
-    .bg-utilities {
-        background: linear-gradient(135deg, #14b8a6 0%, #0ea5e9 100%) !important;
-    }
-
-    .table > :not(:first-child) {
-        border-top: none;
-    }
-
-    .table th {
-        font-weight: 600;
-        text-transform: uppercase;
-        font-size: 0.75rem;
-        letter-spacing: 0.5px;
-    }
-
+    
     .progress {
-        background-color: #f3f4f6;
-        border-radius: 100px;
-        overflow: hidden;
+        background-color: var(--border-color);
+        border-radius: 4px;
     }
-
+    
     .progress-bar {
-        transition: width 0.6s ease;
-    }
-
-    @media (max-width: 767.98px) {
-        .stat-card {
-            margin-bottom: 1rem;
-        }
+        border-radius: 4px;
     }
 </style>
+{% endblock %}
 
+{% block extra_js %}
 <script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle pagination clicks
+    document.querySelectorAll('.pagination .page-link').forEach(link => {
+        link.addEventListener('click', function(e) {
+            if (!this.parentElement.classList.contains('disabled')) {
+                e.preventDefault();
+                const url = new URL(this.href);
+                const page = url.searchParams.get('page');
+                // Update the URL without reloading the page
+                window.history.pushState({}, '', this.href);
+                // You can add AJAX call here to update the content
+            }
+        });
+    });
+});
+
 function editTransaction(id) {
-    // TODO: Implement edit functionality
-    console.log('Edit transaction:', id);
+    fetch(`/api/transaction/${id}/`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('category').value = data.category;
+            document.getElementById('amount').value = data.amount;
+            document.getElementById('description').value = data.description;
+            document.getElementById('date').value = data.date;
+            document.getElementById('editTransactionForm').action = `/transaction/${id}/edit/`;
+            $('#editTransactionModal').modal('show');
+        });
 }
 
 function deleteTransaction(id) {
     if (confirm('Are you sure you want to delete this transaction?')) {
-        // TODO: Implement delete functionality
-        console.log('Delete transaction:', id);
+        fetch(`/transaction/${id}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        }).then(() => {
+            window.location.reload();
+        });
     }
 }
 </script>

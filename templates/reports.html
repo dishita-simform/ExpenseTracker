@@ -1,0 +1,222 @@
+{% extends 'base.html' %}
+{% load budget_filters %}
+
+{% block title %}Reports - Budget Tracker{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2 class="h3 mb-0">Financial Reports</h2>
+        </div>
+        <div class="col-md-4 text-md-end">
+            <form method="get" class="d-flex justify-content-end">
+                <div class="input-group me-2" style="max-width: 300px;">
+                    <input type="date" name="start_date" class="form-control" value="{{ start_date|date:'Y-m-d' }}">
+                    <input type="date" name="end_date" class="form-control" value="{{ end_date|date:'Y-m-d' }}">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-filter"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="icon-circle bg-success bg-opacity-10 me-3">
+                            <i class="fas fa-arrow-down text-success"></i>
+                        </div>
+                        <h3 class="h5 mb-0">Total Income</h3>
+                    </div>
+                    <h4 class="mb-0">₹{{ total_income|floatformat:2 }}</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="icon-circle bg-danger bg-opacity-10 me-3">
+                            <i class="fas fa-arrow-up text-danger"></i>
+                        </div>
+                        <h3 class="h5 mb-0">Total Expenses</h3>
+                    </div>
+                    <h4 class="mb-0">₹{{ total_expenses|floatformat:2 }}</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="icon-circle {% if net_income >= 0 %}bg-success{% else %}bg-danger{% endif %} bg-opacity-10 me-3">
+                            <i class="fas fa-balance-scale {% if net_income >= 0 %}text-success{% else %}text-danger{% endif %}"></i>
+                        </div>
+                        <h3 class="h5 mb-0">Net Income</h3>
+                    </div>
+                    <h4 class="mb-0 {% if net_income >= 0 %}text-success{% else %}text-danger{% endif %}">
+                        ₹{{ net_income|floatformat:2 }}
+                    </h4>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="row mb-4">
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Expenses by Category</h5>
+                </div>
+                <div class="card-body">
+                    {% if expenses_by_category %}
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Category</th>
+                                    <th class="text-end">Amount</th>
+                                    <th class="text-end">%</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for category, amount in expenses_by_category.items %}
+                                <tr>
+                                    <td>{{ category }}</td>
+                                    <td class="text-end">₹{{ amount|floatformat:2 }}</td>
+                                    <td class="text-end">{{ amount|div:total_expenses|mul:100|floatformat:1 }}%</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <div class="text-muted">
+                            <i class="fas fa-chart-pie fa-2x mb-3"></i>
+                            <p class="mb-0">No expense data for this period</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Income by Source</h5>
+                </div>
+                <div class="card-body">
+                    {% if income_by_source %}
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Source</th>
+                                    <th class="text-end">Amount</th>
+                                    <th class="text-end">%</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for source, amount in income_by_source.items %}
+                                <tr>
+                                    <td>{{ source }}</td>
+                                    <td class="text-end">₹{{ amount|floatformat:2 }}</td>
+                                    <td class="text-end">{{ amount|div:total_income|mul:100|floatformat:1 }}%</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <div class="text-muted">
+                            <i class="fas fa-chart-pie fa-2x mb-3"></i>
+                            <p class="mb-0">No income data for this period</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Transactions List -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Transactions</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="bg-light">
+                        <tr>
+                            <th class="border-0">Date</th>
+                            <th class="border-0">Type</th>
+                            <th class="border-0">Category/Source</th>
+                            <th class="border-0">Description</th>
+                            <th class="border-0 text-end">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for expense in expenses %}
+                        <tr>
+                            <td>{{ expense.date|date:"M d, Y" }}</td>
+                            <td><span class="badge bg-danger">Expense</span></td>
+                            <td>{{ expense.category }}</td>
+                            <td>{{ expense.description }}</td>
+                            <td class="text-end text-danger">-₹{{ expense.amount|floatformat:2 }}</td>
+                        </tr>
+                        {% endfor %}
+                        {% for inc in income %}
+                        <tr>
+                            <td>{{ inc.date|date:"M d, Y" }}</td>
+                            <td><span class="badge bg-success">Income</span></td>
+                            <td>{{ inc.source.name }}</td>
+                            <td>{{ inc.description }}</td>
+                            <td class="text-end text-success">+₹{{ inc.amount|floatformat:2 }}</td>
+                        </tr>
+                        {% endfor %}
+                        {% if not expenses and not income %}
+                        <tr>
+                            <td colspan="5" class="text-center py-4">
+                                <div class="text-muted">
+                                    <i class="fas fa-inbox fa-2x mb-3"></i>
+                                    <p class="mb-0">No transactions found for this period</p>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .icon-circle {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .table > :not(caption) > * > * {
+        padding: 1rem;
+    }
+    
+    .badge {
+        font-weight: 500;
+        padding: 0.5em 1em;
+    }
+</style>
+{% endblock %} 

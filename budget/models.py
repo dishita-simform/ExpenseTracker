@@ -30,6 +30,7 @@ class Category(models.Model):
     name = models.CharField(max_length=100)
     icon = models.CharField(max_length=50, default='receipt')  # FontAwesome icon name
     color = models.CharField(max_length=50, default='primary')  # Bootstrap color name
+    budget = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # Monthly budget amount
 
     class Meta:
         verbose_name_plural = 'Categories'
@@ -40,7 +41,7 @@ class Category(models.Model):
 
 class Budget(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    category = models.ForeignKey(Category, on_delete=models.CASCADE)
+    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='budget_entries')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     start_date = models.DateField(default=timezone.now)
     end_date = models.DateField(null=True, blank=True)
