@@ -1,0 +1,245 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Budget Settings - Budget Tracker{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <div class="col-md-3 col-lg-2 d-md-block bg-dark sidebar collapse">
+            <div class="position-sticky pt-3">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="{% url 'dashboard' %}">
+                            <i class="fas fa-home"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="{% url 'expense_list' %}">
+                            <i class="fas fa-list"></i> Expenses
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="{% url 'income_list' %}">
+                            <i class="fas fa-money-bill-wave"></i> Income
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active text-white" href="{% url 'budget_settings' %}">
+                            <i class="fas fa-cog"></i> Budget Settings
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="{% url 'reports' %}">
+                            <i class="fas fa-chart-bar"></i> Reports
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                <h1 class="h2">Budget Settings</h1>
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
+                    <i class="fas fa-plus"></i> Add Category
+                </button>
+            </div>
+
+            <!-- Monthly Budget Overview -->
+            <div class="card mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">Monthly Budget Overview</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'update_monthly_budget' %}">
+                        {% csrf_token %}
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Monthly Income Target</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">₹</span>
+                                        <input type="number" name="monthly_income" class="form-control" value="{{ monthly_budget.income|default:0 }}" required>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Monthly Savings Target (%)</label>
+                                    <div class="input-group">
+                                        <input type="number" name="savings_target" class="form-control" value="{{ monthly_budget.savings_target|default:20 }}" required>
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Update Monthly Budget</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Category Budgets -->
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">Category Budgets</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Category</th>
+                                    <th>Monthly Budget</th>
+                                    <th>Spent This Month</th>
+                                    <th>Remaining</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for category in categories %}
+                                <tr>
+                                    <td>
+                                        <i class="fas fa-{{ category.icon }} me-2"></i>
+                                        {{ category.name }}
+                                    </td>
+                                    <td>₹{{ category.budget|default:0 }}</td>
+                                    <td>₹{{ category.spent|default:0 }}</td>
+                                    <td class="{% if category.remaining < 0 %}text-danger{% else %}text-success{% endif %}">
+                                        ₹{{ category.remaining|default:0 }}
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary" 
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#editCategoryModal{{ category.id }}">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#deleteCategoryModal{{ category.id }}">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+
+                                <!-- Edit Category Modal -->
+                                <div class="modal fade" id="editCategoryModal{{ category.id }}" tabindex="-1">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">Edit Category</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <form method="post" action="{% url 'update_category' category.id %}">
+                                                    {% csrf_token %}
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Name</label>
+                                                        <input type="text" name="name" class="form-control" value="{{ category.name }}" required>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Monthly Budget</label>
+                                                        <div class="input-group">
+                                                            <span class="input-group-text">₹</span>
+                                                            <input type="number" name="budget" class="form-control" value="{{ category.budget|default:0 }}" required>
+                                                        </div>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Icon</label>
+                                                        <select name="icon" class="form-select" required>
+                                                            <option value="shopping-cart" {% if category.icon == 'shopping-cart' %}selected{% endif %}>Shopping Cart</option>
+                                                            <option value="home" {% if category.icon == 'home' %}selected{% endif %}>Home</option>
+                                                            <option value="car" {% if category.icon == 'car' %}selected{% endif %}>Car</option>
+                                                            <option value="utensils" {% if category.icon == 'utensils' %}selected{% endif %}>Food</option>
+                                                            <option value="hospital" {% if category.icon == 'hospital' %}selected{% endif %}>Healthcare</option>
+                                                            <option value="graduation-cap" {% if category.icon == 'graduation-cap' %}selected{% endif %}>Education</option>
+                                                            <option value="gamepad" {% if category.icon == 'gamepad' %}selected{% endif %}>Entertainment</option>
+                                                            <option value="ellipsis-h" {% if category.icon == 'ellipsis-h' %}selected{% endif %}>Other</option>
+                                                        </select>
+                                                    </div>
+                                                    <button type="submit" class="btn btn-primary">Update Category</button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Delete Category Modal -->
+                                <div class="modal fade" id="deleteCategoryModal{{ category.id }}" tabindex="-1">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">Delete Category</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <p>Are you sure you want to delete the category "{{ category.name }}"? This action cannot be undone.</p>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <form method="post" action="{% url 'delete_category' category.id %}">
+                                                    {% csrf_token %}
+                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                    <button type="submit" class="btn btn-danger">Delete</button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center">No categories found</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- Add Category Modal -->
+<div class="modal fade" id="addCategoryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Category</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form method="post" action="{% url 'add_category' %}">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">Name</label>
+                        <input type="text" name="name" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Monthly Budget</label>
+                        <div class="input-group">
+                            <span class="input-group-text">₹</span>
+                            <input type="number" name="budget" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Icon</label>
+                        <select name="icon" class="form-select" required>
+                            <option value="shopping-cart">Shopping Cart</option>
+                            <option value="home">Home</option>
+                            <option value="car">Car</option>
+                            <option value="utensils">Food</option>
+                            <option value="hospital">Healthcare</option>
+                            <option value="graduation-cap">Education</option>
+                            <option value="gamepad">Entertainment</option>
+                            <option value="ellipsis-h">Other</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add Category</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

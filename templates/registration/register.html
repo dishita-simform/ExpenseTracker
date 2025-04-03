@@ -1,0 +1,350 @@
+{% extends "base.html" %}
+
+{% block title %}Register - Budget Tracker{% endblock %}
+
+{% with hide_sidebar=True %}
+{% block content %}
+<div class="row align-items-start">
+    <div class="col-lg-6 d-none d-lg-block">
+        <div class="auth-illustration">
+            <div class="text-center">
+                <div class="welcome-icon mb-3">
+                    <i class="fas fa-wallet"></i>
+                </div>
+                <h1 class="display-4 fw-bold mb-3" style="background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                    Join Budget Tracker
+                </h1>
+                <p class="lead text-muted mb-4">Start your journey towards better financial management.</p>
+                <div class="auth-features">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="icon-circle me-3" style="background: var(--gradient-primary);">
+                            <i class="fas fa-shield-alt"></i>
+                        </div>
+                        <div class="text-start">
+                            <h6 class="mb-1">Secure & Private</h6>
+                            <small class="text-muted">Your data is encrypted and protected</small>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="icon-circle me-3" style="background: var(--gradient-success);">
+                            <i class="fas fa-mobile-alt"></i>
+                        </div>
+                        <div class="text-start">
+                            <h6 class="mb-1">Mobile Friendly</h6>
+                            <small class="text-muted">Access from any device</small>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <div class="icon-circle me-3" style="background: var(--gradient-danger);">
+                            <i class="fas fa-headset"></i>
+                        </div>
+                        <div class="text-start">
+                            <h6 class="mb-1">24/7 Support</h6>
+                            <small class="text-muted">We're here to help you</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="auth-form-container">
+            <div class="text-center mb-3">
+                <h2 class="fw-bold">Create Your Account</h2>
+                <p class="text-muted small mb-0">Fill in your details to get started</p>
+            </div>
+            
+            <form method="post" class="needs-validation" novalidate>
+                {% csrf_token %}
+                {% if form.errors %}
+                    <div class="alert alert-danger py-2">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        {% for field, errors in form.errors.items %}
+                            {% for error in errors %}
+                                {% if field != '__all__' %}
+                                    {{ field|title }}: {{ error }}<br>
+                                {% else %}
+                                    {{ error }}<br>
+                                {% endif %}
+                            {% endfor %}
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                
+                <div class="social-auth mb-3">
+                    <div class="d-grid gap-2">
+                        <button type="button" class="btn btn-outline-light social-btn google-btn">
+                            <img src="https://www.google.com/favicon.ico" alt="Google" class="social-icon">
+                            Continue with Google
+                        </button>
+                        <button type="button" class="btn btn-outline-light social-btn facebook-btn">
+                            <i class="fab fa-facebook-f social-icon"></i>
+                            Continue with Facebook
+                        </button>
+                    </div>
+                </div>
+
+                <div class="separator mb-3">
+                    <span class="separator-text">or register with email</span>
+                </div>
+                
+                <div class="row g-2 mb-2">
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            <input type="text" name="first_name" class="form-control {% if form.first_name.errors %}is-invalid{% endif %}" 
+                                   id="first_name" placeholder="First Name" required 
+                                   value="{{ form.first_name.value|default:'' }}">
+                            <label for="first_name">First Name</label>
+                            <div class="invalid-feedback">
+                                {% for error in form.first_name.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            <input type="text" name="last_name" class="form-control {% if form.last_name.errors %}is-invalid{% endif %}" 
+                                   id="last_name" placeholder="Last Name" required 
+                                   value="{{ form.last_name.value|default:'' }}">
+                            <label for="last_name">Last Name</label>
+                            <div class="invalid-feedback">
+                                {% for error in form.last_name.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-floating mb-2">
+                    <input type="text" name="username" class="form-control {% if form.username.errors %}is-invalid{% endif %}" 
+                           id="username" placeholder="Username" required 
+                           value="{{ form.username.value|default:'' }}">
+                    <label for="username">Username</label>
+                    <div class="invalid-feedback">
+                        {% for error in form.username.errors %}
+                            {{ error }}
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <div class="form-floating mb-2">
+                    <input type="email" name="email" class="form-control {% if form.email.errors %}is-invalid{% endif %}" 
+                           id="email" placeholder="Email" required 
+                           value="{{ form.email.value|default:'' }}">
+                    <label for="email">Email</label>
+                    <div class="invalid-feedback">
+                        {% for error in form.email.errors %}
+                            {{ error }}
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <div class="form-floating mb-2">
+                    <input type="password" name="password1" class="form-control {% if form.password1.errors %}is-invalid{% endif %}" 
+                           id="password1" placeholder="Password" required>
+                    <label for="password1">Password</label>
+                    <div class="invalid-feedback">
+                        {% for error in form.password1.errors %}
+                            {{ error }}
+                        {% endfor %}
+                    </div>
+                    {% if form.password1.help_text %}
+                        <small class="form-text text-muted">{{ form.password1.help_text|safe }}</small>
+                    {% endif %}
+                </div>
+                
+                <div class="form-floating mb-3">
+                    <input type="password" name="password2" class="form-control {% if form.password2.errors %}is-invalid{% endif %}" 
+                           id="password2" placeholder="Confirm Password" required>
+                    <label for="password2">Confirm Password</label>
+                    <div class="invalid-feedback">
+                        {% for error in form.password2.errors %}
+                            {{ error }}
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-user-plus me-2"></i>Create Account
+                    </button>
+                </div>
+            </form>
+            
+            <div class="text-center mt-3">
+                <p class="mb-0 small">Already have an account? 
+                    <a href="{% url 'login' %}" class="text-decoration-none" style="color: var(--primary-color);">
+                        Login here
+                    </a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .auth-illustration {
+        background: linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(236, 72, 153, 0.1) 100%);
+        border-radius: 1rem;
+        height: auto;
+        min-height: 100%;
+        padding: 2rem;
+        margin: 0;
+    }
+    
+    .auth-form-container {
+        background: white;
+        border-radius: 1rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        max-width: 440px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+    
+    .form-floating > .form-control {
+        border: 2px solid var(--border-color);
+        border-radius: 0.5rem;
+        padding: 1rem 0.75rem;
+    }
+    
+    .form-floating > .form-control:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 0.2rem rgba(124, 58, 237, 0.25);
+    }
+    
+    .form-floating > label {
+        padding: 1rem 0.75rem;
+    }
+    
+    .icon-circle {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        color: white;
+    }
+
+    .welcome-icon {
+        width: 64px;
+        height: 64px;
+        margin: 0 auto;
+        background: var(--gradient-primary);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        color: white;
+        box-shadow: 0 4px 6px rgba(124, 58, 237, 0.2);
+    }
+
+    .auth-features {
+        max-width: 360px;
+        margin: 0 auto;
+    }
+
+    .social-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.7rem;
+        border-radius: 0.5rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        border: 2px solid var(--border-color);
+        background: white;
+        color: var(--text-primary);
+    }
+
+    .social-btn:hover {
+        transform: translateY(-2px);
+        color: var(--text-primary) !important;
+    }
+
+    .google-btn:hover {
+        background: #f8f9fa;
+        border-color: #dadce0;
+        box-shadow: 0 4px 6px rgba(60, 64, 67, 0.1);
+    }
+
+    .facebook-btn:hover {
+        background: #f5f6f7;
+        border-color: #1877f2;
+        box-shadow: 0 4px 6px rgba(24, 119, 242, 0.1);
+    }
+
+    .social-icon {
+        width: 20px;
+        height: 20px;
+        margin-right: 12px;
+        object-fit: contain;
+    }
+
+    .fab.fa-facebook-f.social-icon {
+        color: #1877f2;
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .separator {
+        display: flex;
+        align-items: center;
+        text-align: center;
+        color: var(--text-secondary);
+    }
+
+    .separator::before,
+    .separator::after {
+        content: '';
+        flex: 1;
+        border-bottom: 2px solid var(--border-color);
+    }
+
+    .separator::before {
+        margin-right: 1rem;
+    }
+
+    .separator::after {
+        margin-left: 1rem;
+    }
+
+    .separator-text {
+        padding: 0 0.5rem;
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+    }
+
+    @media (max-width: 991.98px) {
+        .auth-form-container {
+            margin: 1rem auto;
+            padding: 1.5rem;
+        }
+    }
+</style>
+
+<script>
+(function () {
+    'use strict'
+    var forms = document.querySelectorAll('.needs-validation')
+    Array.prototype.slice.call(forms).forEach(function (form) {
+        form.addEventListener('submit', function (event) {
+            if (!form.checkValidity()) {
+                event.preventDefault()
+                event.stopPropagation()
+            }
+            form.classList.add('was-validated')
+        }, false)
+    })
+})()
+</script>
+{% endblock %}
+{% endwith %} 
