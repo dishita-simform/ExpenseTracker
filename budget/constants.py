@@ -1,0 +1,22 @@
+# Predefined categories for expenses
+CATEGORIES = [
+    ('Rent', 'Rent'),
+    ('Food', 'Food'),
+    ('Travel', 'Travel'),
+    ('Bills', 'Bills'),
+    ('Entertainment', 'Entertainment'),
+    ('Shopping', 'Shopping'),
+    ('Healthcare', 'Healthcare'),
+    ('Education', 'Education'),
+    ('Transportation', 'Transportation'),
+    ('Utilities', 'Utilities'),
+    ('Insurance', 'Insurance'),
+    ('Savings', 'Savings'),
+    ('Investment', 'Investment'),
+    ('Gifts', 'Gifts'),
+    ('Fitness', 'Fitness'),
+    ('Pet', 'Pet'),
+    ('Home', 'Home'),
+    ('Personal Care', 'Personal Care'),
+    ('Other', 'Other'),
+] 

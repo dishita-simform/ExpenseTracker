@@ -4,7 +4,7 @@ from django.shortcuts import redirect
 from . import views
 
 router = DefaultRouter()
-router.register(r'expenses', views.ExpenseViewSet, basename='expense')
+router.register(r'api/expenses', views.ExpenseViewSet, basename='expense')
 
 def home(request):
     return redirect('dashboard')
@@ -31,4 +31,6 @@ urlpatterns = [
     path('api/transaction/<int:transaction_id>/', views.get_transaction, name='get_transaction'),
     path('transaction/<int:transaction_id>/edit/', views.edit_transaction, name='edit_transaction'),
     path('transaction/<int:transaction_id>/delete/', views.delete_transaction, name='delete_transaction'),
+    path('budget-history/', views.budget_history, name='budget_history'),
+    path('api/dashboard-data/', views.dashboard_data, name='dashboard_data'),
 ]

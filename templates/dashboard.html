@@ -4,15 +4,102 @@
 
 {% block title %}Dashboard - Budget Tracker{% endblock %}
 
+{% block extra_css %}
+<style type="text/css">
+.stat-card {
+    transition: transform 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+}
+
+.stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.25rem;
+}
+
+.category-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 0.875rem;
+}
+
+.progress {
+    height: 8px;
+    margin-bottom: 0;
+    background-color: var(--border-color);
+    border-radius: 4px;
+}
+
+.progress-bar {
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.chart-container {
+    position: relative;
+    margin: auto;
+    height: 350px;
+    width: 100%;
+}
+
+/* Add gradient background classes */
+{% for category in budget_categories %}
+.bg-gradient-{{ category.color }} {
+    background: var(--gradient-{{ category.color }});
+}
+{% endfor %}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid py-4">
     <!-- Welcome Section -->
-    <div class="row mb-4">
+    <div class="row mb-2">
         <div class="col-12">
-            <h1 class="display-4 fw-bold mb-3" style="background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            <h1 class="display-4 fw-bold mb-2" style="background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
                 Welcome Back, {{ request.user.first_name }}!
             </h1>
             <p class="text-muted">Here's your financial overview</p>
+        </div>
+    </div>
+
+    <!-- Month/Year Selection -->
+    <div class="card mb-4">
+        <div class="card-body py-3">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label for="year" class="form-label">Year</label>
+                    <select name="year" id="year" class="form-select" onchange="this.form.submit()">
+                        {% for year in available_years %}
+                            <option value="{{ year }}" {% if year == selected_year %}selected{% endif %}>{{ year }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="month" class="form-label">Month</label>
+                    <select name="month" id="month" class="form-select" onchange="this.form.submit()">
+                        {% for month_num, month_name in month_names %}
+                            <option value="{{ month_num }}" {% if month_num == selected_month %}selected{% endif %}>{{ month_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-primary w-100">View Dashboard</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -25,7 +112,7 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <h6 class="text-muted mb-2">Total Balance</h6>
-                            <h3 class="mb-0">₹{{ total_balance }}</h3>
+                            <h3 class="mb-0" id="totalBalance">₹{{ total_balance }}</h3>
                         </div>
                         <div class="stat-icon bg-primary">
                             <i class="fas fa-wallet"></i>
@@ -42,7 +129,7 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <h6 class="text-muted mb-2">Income</h6>
-                            <h3 class="mb-0">₹{{ total_income }}</h3>
+                            <h3 class="mb-0" id="totalIncome">₹{{ total_income }}</h3>
                         </div>
                         <div class="stat-icon bg-success">
                             <i class="fas fa-arrow-down"></i>
@@ -59,7 +146,7 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <h6 class="text-muted mb-2">Expenses</h6>
-                            <h3 class="mb-0">₹{{ total_expenses }}</h3>
+                            <h3 class="mb-0" id="totalExpenses">₹{{ total_expenses }}</h3>
                         </div>
                         <div class="stat-icon bg-danger">
                             <i class="fas fa-arrow-up"></i>
@@ -76,7 +163,7 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <h6 class="text-muted mb-2">Savings</h6>
-                            <h3 class="mb-0">₹{{ total_savings }}</h3>
+                            <h3 class="mb-0" id="totalSavings">₹{{ total_savings }}</h3>
                         </div>
                         <div class="stat-icon bg-info">
                             <i class="fas fa-piggy-bank"></i>
@@ -89,166 +176,56 @@
 
     <!-- Main Content -->
     <div class="row g-4">
-        <!-- Recent Transactions -->
-        <div class="col-12 col-xl-8">
-            <div class="card h-100">
-                <div class="card-header bg-transparent py-3 d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Recent Transactions</h5>
-                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addTransactionModal">
-                        <i class="fas fa-plus me-2"></i>Add New
-                    </button>
-                </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
-                            <thead class="bg-light">
-                                <tr>
-                                    <th class="ps-4">Category</th>
-                                    <th>Description</th>
-                                    <th>Date</th>
-                                    <th class="text-end pe-4">Amount</th>
-                                    <th class="text-end pe-4">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for transaction in recent_transactions %}
-                                <tr>
-                                    <td class="ps-4">
-                                        <div class="d-flex align-items-center">
-                                            <div class="category-icon me-2 bg-{{ transaction.category.color }}">
-                                                <i class="fas fa-{{ transaction.category.icon }}"></i>
-                                            </div>
-                                            {{ transaction.category.name }}
-                                        </div>
-                                    </td>
-                                    <td>{{ transaction.description }}</td>
-                                    <td>{{ transaction.date|date:"M d, Y" }}</td>
-                                    <td class="text-end pe-4">
-                                        {% if transaction.amount < 0 %}
-                                        <span class="text-danger">₹{{ transaction.amount|abs_value }}</span>
-                                        {% else %}
-                                        <span class="text-success">₹{{ transaction.amount }}</span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="text-end pe-4">
-                                        <button class="btn btn-sm btn-primary" onclick="editTransaction({{ transaction.id }})">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-danger" onclick="deleteTransaction({{ transaction.id }})">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="5" class="text-center py-4">
-                                        <div class="text-muted">
-                                            <i class="fas fa-receipt fs-2 mb-2"></i>
-                                            <p class="mb-0">No transactions yet</p>
-                                        </div>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- Budget Overview -->
-        <div class="col-12 col-xl-4">
-            <div class="card h-100">
+        <div class="col-12">
+            <div class="card">
                 <div class="card-header bg-transparent py-3 d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Budget Overview</h5>
+                    <h5 class="mb-0">Budget Overview for {{ selected_month_name }} {{ selected_year }}</h5>
                     <a href="{% url 'budget_settings' %}" class="btn btn-sm btn-primary">
                         <i class="fas fa-cog me-2"></i>Settings
                     </a>
                 </div>
-                <div class="card-body">
-                    {% for category in budget_categories %}
-                    <div class="budget-item mb-4">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <div class="d-flex align-items-center">
-                                <div class="category-icon me-2 bg-gradient-{{ category.color }}">
-                                    <i class="fas fa-{{ category.icon }}"></i>
+                <div class="card-body" id="budgetOverviewContainer">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <!-- Pie Chart -->
+                            <div class="chart-container mb-4">
+                                <canvas id="budgetPieChart"></canvas>
+                            </div>
+                            
+                        <div class="col-md-6">
+                            <!-- Budget Categories List -->
+                            {% for category in budget_categories %}
+                            <div class="budget-item mb-4">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <div class="d-flex align-items-center">
+                                        <div class="category-icon me-2 bg-gradient-{{ category.color }}">
+                                            <i class="fas fa-{{ category.icon }}"></i>
+                                        </div>
+                                        <span>{{ category.name }}</span>
+                                    </div>
+                                    <div class="text-end">
+                                        <span class="fw-bold">₹{{ category.spent }}</span>
+                                        <small class="text-muted">/ ₹{{ category.budget }}</small>
+                                    </div>
                                 </div>
-                                <span>{{ category.name }}</span>
+                                <div class="progress">
+                                    {% with percentage=category.percentage|default:0 %}
+                                    <div class="progress-bar bg-gradient-{{ category.color }}" 
+                                         role="progressbar" 
+                                         data-width="{{ percentage }}"
+                                         style="width: {{ percentage }}%"
+                                         aria-valuenow="{{ percentage }}" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="100">
+                                    </div>
+                                    {% endwith %}
+                                </div>
                             </div>
-                            <div class="text-end">
-                                <span class="fw-bold">₹{{ category.spent }}</span>
-                                <small class="text-muted">/ ₹{{ category.budget }}</small>
-                            </div>
-                        </div>
-                        <div class="progress">
-                            <div class="progress-bar bg-gradient-{{ category.color }}" 
-                                 role="progressbar" 
-                                 style="width: {{ category.percentage }}%"
-                                 aria-valuenow="{{ category.percentage }}" 
-                                 aria-valuemin="0" 
-                                 aria-valuemax="100"></div>
+                            {% empty %}
+                            {% endfor %}
                         </div>
                     </div>
-                    {% empty %}
-                    <div class="text-center py-4">
-                        <div class="text-muted">
-                            <i class="fas fa-chart-pie fs-2 mb-2"></i>
-                            <p class="mb-0">No budget categories set</p>
-                            <a href="{% url 'budget_settings' %}" class="btn btn-sm btn-primary mt-3">
-                                <i class="fas fa-plus me-2"></i>Set Budget
-                            </a>
-                        </div>
-                    </div>
-                    {% endfor %}
-                    
-                    <!-- Pagination Controls -->
-                    {% if pagination.total_pages > 1 %}
-                    <div class="d-flex justify-content-center mt-4">
-                        <nav aria-label="Budget categories pagination">
-                            <ul class="pagination pagination-sm">
-                                {% if pagination.has_previous %}
-                                <li class="page-item">
-                                    <a class="page-link" href="?page={{ pagination.previous_page }}" aria-label="Previous">
-                                        <span aria-hidden="true">&laquo;</span>
-                                    </a>
-                                </li>
-                                {% else %}
-                                <li class="page-item disabled">
-                                    <a class="page-link" href="#" aria-label="Previous">
-                                        <span aria-hidden="true">&laquo;</span>
-                                    </a>
-                                </li>
-                                {% endif %}
-                                
-                                {% for page_num in pagination.page_range %}
-                                    {% if page_num == pagination.current_page %}
-                                    <li class="page-item active">
-                                        <a class="page-link" href="?page={{ page_num }}">{{ page_num }}</a>
-                                    </li>
-                                    {% else %}
-                                    <li class="page-item">
-                                        <a class="page-link" href="?page={{ page_num }}">{{ page_num }}</a>
-                                    </li>
-                                    {% endif %}
-                                {% endfor %}
-                                
-                                {% if pagination.has_next %}
-                                <li class="page-item">
-                                    <a class="page-link" href="?page={{ pagination.next_page }}" aria-label="Next">
-                                        <span aria-hidden="true">&raquo;</span>
-                                    </a>
-                                </li>
-                                {% else %}
-                                <li class="page-item disabled">
-                                    <a class="page-link" href="#" aria-label="Next">
-                                        <span aria-hidden="true">&raquo;</span>
-                                    </a>
-                                </li>
-                                {% endif %}
-                            </ul>
-                        </nav>
-                    </div>
-                    {% endif %}
                 </div>
             </div>
         </div>
@@ -263,31 +240,51 @@
                 <h5 class="modal-title">Add Transaction</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form method="post" action="{% url 'add_transaction' %}">
+            <form method="post" action="{% url 'add_transaction' %}" id="addTransactionForm">
                 {% csrf_token %}
                 <div class="modal-body">
+                    <!-- Transaction Type -->
                     <div class="mb-3">
-                        <label class="form-label">Category</label>
-                        <select class="form-select" name="category" required>
-                            {% for category in categories %}
-                            <option value="{{ category.id }}">{{ category.name }}</option>
-                            {% endfor %}
+                        <label class="form-label">Transaction Type</label>
+                        <select class="form-select" name="transaction_type" id="transactionType" required>
+                            <option value="expense" selected>Expense</option>
+                            <option value="income">Income</option>
                         </select>
                     </div>
+
+                    <!-- Category/Source -->
+                    <div class="mb-3" id="categoryGroup">
+                        <label class="form-label" id="categoryLabel">Category</label>
+                        <select class="form-select" name="category" id="category" required>
+                            <optgroup label="Expense Categories" id="expenseCategories">
+                                {% for category in expense_categories %}
+                                <option value="{{ category.id }}" data-type="expense">{{ category.name }}</option>
+                                {% endfor %}
+                            </optgroup>
+                            <optgroup label="Income Sources" id="incomeSources" style="display: none;">
+                                {% for source in income_sources %}
+                                <option value="{{ source.id }}" data-type="income" disabled>{{ source.name }}</option>
+                            {% endfor %}
+                            </optgroup>
+                        </select>
+                    </div>
+
                     <div class="mb-3">
                         <label class="form-label">Amount</label>
                         <div class="input-group">
                             <span class="input-group-text">₹</span>
-                            <input type="number" class="form-control" name="amount" step="0.01" required>
+                            <input type="number" class="form-control" name="amount" id="amount" step="0.01" min="0" required>
                         </div>
                     </div>
+
                     <div class="mb-3">
                         <label class="form-label">Description</label>
-                        <input type="text" class="form-control" name="description" required>
+                        <input type="text" class="form-control" name="description" id="description" required>
                     </div>
+
                     <div class="mb-3">
                         <label class="form-label">Date</label>
-                        <input type="date" class="form-control" name="date" required>
+                        <input type="date" class="form-control" name="date" id="date" required max="{{ today }}">
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -298,136 +295,342 @@
         </div>
     </div>
 </div>
-
-<!-- Edit Transaction Modal -->
-<div class="modal fade" id="editTransactionModal" tabindex="-1" role="dialog" aria-labelledby="editTransactionModalLabel" aria-hidden="true">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="editTransactionModalLabel">Edit Transaction</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <form id="editTransactionForm" method="POST">
-                {% csrf_token %}
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label for="category">Category</label>
-                        <select class="form-control" id="category" name="category" required>
-                            {% for category in categories %}
-                            <option value="{{ category.id }}">{{ category.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="amount">Amount</label>
-                        <input type="number" class="form-control" id="amount" name="amount" step="0.01" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="description">Description</label>
-                        <input type="text" class="form-control" id="description" name="description" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="date">Date</label>
-                        <input type="date" class="form-control" id="date" name="date" required>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-                    <button type="submit" class="btn btn-primary">Save changes</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-{% endblock %}
-
-{% block extra_css %}
-<style>
-    .stat-card {
-        transition: transform 0.3s ease;
-    }
-    
-    .stat-card:hover {
-        transform: translateY(-5px);
-    }
-    
-    .stat-icon {
-        width: 48px;
-        height: 48px;
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-size: 1.25rem;
-    }
-    
-    .category-icon {
-        width: 32px;
-        height: 32px;
-        border-radius: 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-size: 0.875rem;
-    }
-    
-    .progress {
-        background-color: var(--border-color);
-        border-radius: 4px;
-    }
-    
-    .progress-bar {
-        border-radius: 4px;
-    }
-</style>
 {% endblock %}
 
 {% block extra_js %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Handle pagination clicks
-    document.querySelectorAll('.pagination .page-link').forEach(link => {
-        link.addEventListener('click', function(e) {
-            if (!this.parentElement.classList.contains('disabled')) {
-                e.preventDefault();
-                const url = new URL(this.href);
-                const page = url.searchParams.get('page');
-                // Update the URL without reloading the page
-                window.history.pushState({}, '', this.href);
-                // You can add AJAX call here to update the content
-            }
-        });
-    });
-});
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-function editTransaction(id) {
-    fetch(`/api/transaction/${id}/`)
+<script type="text/javascript">
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize pie chart
+    try {
+        const budgetDataStr = '{{ budget_data|safe|escapejs }}';
+        const budgetData = JSON.parse(budgetDataStr);
+        if (budgetData && budgetData.length > 0) {
+            const ctx = document.getElementById('budgetPieChart').getContext('2d');
+            const chart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: budgetData.map(function(item) { return item.name; }),
+                    datasets: [{
+                        data: budgetData.map(function(item) { return item.spent; }),
+                        backgroundColor: budgetData.map(function(item) { return item.color; }),
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                boxWidth: 12,
+                                padding: 15,
+                                font: {
+                                    size: 12
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.raw;
+                                    const total = context.dataset.data.reduce(function(a, b) { return a + b; }, 0);
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return `₹${value} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    },
+                    cutout: '60%'
+                }
+            });
+            window.budgetChart = chart;
+        }
+    } catch (error) {
+        console.error('Error initializing chart:', error);
+    }
+
+    // Handle transaction type change
+    const transactionType = document.getElementById('transactionType');
+    const categoryLabel = document.getElementById('categoryLabel');
+    const categoryGroup = document.getElementById('categoryGroup');
+    const expenseCategories = document.querySelectorAll('#expenseCategories option');
+    const incomeSources = document.querySelectorAll('#incomeSources option');
+    const dateInput = document.getElementById('date');
+
+    // Set default date to today
+    dateInput.value = new Date().toISOString().split('T')[0];
+    dateInput.max = new Date().toISOString().split('T')[0];
+
+    transactionType.addEventListener('change', function() {
+        const isExpense = this.value === 'expense';
+        
+        // Show/hide category field based on transaction type
+        categoryGroup.style.display = isExpense ? 'block' : 'none';
+        
+        if (isExpense) {
+            categoryLabel.textContent = 'Category';
+            expenseCategories.forEach(option => {
+                option.disabled = false;
+                option.style.display = '';
+            });
+            incomeSources.forEach(option => {
+                option.disabled = true;
+                option.style.display = 'none';
+            });
+        } else {
+            expenseCategories.forEach(option => {
+                option.disabled = true;
+                option.style.display = 'none';
+            });
+            incomeSources.forEach(option => {
+                option.disabled = false;
+                option.style.display = '';
+            });
+        }
+
+        // Update form action
+        const form = document.getElementById('addTransactionForm');
+        form.action = isExpense ? "{% url 'add_transaction' %}" : "{% url 'add_income' %}";
+    });
+
+    // Handle date validation
+    dateInput.addEventListener('change', function() {
+        const selectedDate = new Date(this.value);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        if (selectedDate > today) {
+            alert('Date cannot be in the future');
+            this.value = today.toISOString().split('T')[0];
+        }
+    });
+
+    // Handle transaction form submission
+    const addTransactionForm = document.getElementById('addTransactionForm');
+
+    addTransactionForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const url = this.action;
+        
+        fetch(url, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
         .then(response => response.json())
         .then(data => {
-            document.getElementById('category').value = data.category;
-            document.getElementById('amount').value = data.amount;
-            document.getElementById('description').value = data.description;
-            document.getElementById('date').value = data.date;
-            document.getElementById('editTransactionForm').action = `/transaction/${id}/edit/`;
-            $('#editTransactionModal').modal('show');
-        });
-}
+            if (data.success) {
+                // Update dashboard totals
+                fetch('/api/dashboard-data/', {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => response.json())
+                .then(dashboardData => {
+                    document.getElementById('totalBalance').textContent = `₹${dashboardData.total_balance}`;
+                    document.getElementById('totalIncome').textContent = `₹${dashboardData.total_income}`;
+                    document.getElementById('totalExpenses').textContent = `₹${dashboardData.total_expenses}`;
+                    document.getElementById('totalSavings').textContent = `₹${dashboardData.total_savings}`;
+                    
+                    // Update pie chart if it exists
+                    if (window.budgetChart && dashboardData.budget_categories) {
+                        window.budgetChart.data.labels = dashboardData.budget_categories.map(cat => cat.name);
+                        window.budgetChart.data.datasets[0].data = dashboardData.budget_categories.map(cat => cat.spent);
+                        window.budgetChart.update();
+                    }
+                })
+                .catch(error => console.error('Error updating dashboard:', error));
 
-function deleteTransaction(id) {
-    if (confirm('Are you sure you want to delete this transaction?')) {
-        fetch(`/transaction/${id}/delete/`, {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                // Close modal and reset form
+                const modal = bootstrap.Modal.getInstance(document.getElementById('addTransactionModal'));
+                modal.hide();
+                addTransactionForm.reset();
+
+                // Set default date to today
+                const dateInput = document.getElementById('date');
+                dateInput.value = new Date().toISOString().split('T')[0];
+
+                // Show success message
+                showAlert('success', data.message);
+            } else {
+                showAlert('danger', data.error || 'Error adding transaction');
             }
-        }).then(() => {
-            window.location.reload();
+        })
+        .catch(error => {
+            showAlert('danger', 'Error adding transaction');
+            console.error('Error:', error);
+        });
+    });
+
+    // Function to show alert messages
+    function showAlert(type, message) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
+        alertDiv.setAttribute('role', 'alert');
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        document.body.appendChild(alertDiv);
+        
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 3000);
+    }
+
+    // Function to update dashboard data
+    function updateDashboardData() {
+        const month = document.getElementById('month').value;
+        const year = document.getElementById('year').value;
+        
+        // Show loading state
+        document.querySelectorAll('.stat-value').forEach(el => el.textContent = '...');
+        
+        // Make AJAX request
+        fetch(`/budget/dashboard-data/?month=${month}&year=${year}`, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Update statistics
+            document.getElementById('totalBalance').textContent = formatCurrency(data.total_balance);
+            document.getElementById('totalIncome').textContent = formatCurrency(data.total_income);
+            document.getElementById('totalExpenses').textContent = formatCurrency(data.total_expenses);
+            document.getElementById('totalSavings').textContent = formatCurrency(data.total_savings);
+            
+            // Update pie chart
+            updatePieChart(data.budget_categories);
+            
+            // Update budget categories list
+            updateBudgetCategories(data.budget_categories);
+        })
+        .catch(error => {
+            console.error('Error updating dashboard:', error);
         });
     }
-}
+    
+    // Function to format currency
+    function formatCurrency(amount) {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(amount);
+    }
+    
+    // Function to update pie chart
+    function updatePieChart(categories) {
+        const ctx = document.getElementById('budgetPieChart').getContext('2d');
+        
+        // Destroy existing chart if it exists
+        if (window.expensePieChart) {
+            window.expensePieChart.destroy();
+        }
+        
+        // Prepare data for pie chart
+        const data = {
+            labels: categories.map(cat => cat.name),
+            datasets: [{
+                data: categories.map(cat => cat.spent),
+                backgroundColor: categories.map(cat => cat.color),
+                borderWidth: 1
+            }]
+        };
+        
+        // Create new chart
+        window.expensePieChart = new Chart(ctx, {
+            type: 'pie',
+            data: data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            font: {
+                                size: 12
+                            }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const value = context.raw;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return `${context.label}: ${formatCurrency(value)} (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Function to update budget categories list
+    function updateBudgetCategories(categories) {
+        const container = document.getElementById('budget-categories');
+        container.innerHTML = '';
+        
+        if (categories.length === 0) {
+            container.innerHTML = '<div class="text-center text-muted py-3">No budget categories found for this month.</div>';
+            return;
+        }
+        
+        categories.forEach(category => {
+            const percentage = Math.min(category.percentage, 100);
+            const progressColor = percentage >= 100 ? 'danger' : 
+                                percentage >= 80 ? 'warning' : 'success';
+            
+            const categoryHtml = `
+                <div class="budget-category mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-${category.icon} me-2" style="color: ${category.color}"></i>
+                            <span class="fw-medium">${category.name}</span>
+                        </div>
+                        <div class="text-end">
+                            <div class="fw-medium">${formatCurrency(category.spent)} / ${formatCurrency(category.budget)}</div>
+                            <small class="text-muted">${percentage.toFixed(1)}% used</small>
+                        </div>
+                    </div>
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar bg-${progressColor}" 
+                             role="progressbar" 
+                             style="width: ${percentage}%" 
+                             aria-valuenow="${percentage}" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100">
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.innerHTML += categoryHtml;
+        });
+    }
+    
+    // Add event listeners
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize dashboard data
+        updateDashboardData();
+        
+        // Add event listener for month/year selection
+        document.getElementById('month').addEventListener('change', updateDashboardData);
+        document.getElementById('year').addEventListener('change', updateDashboardData);
+    });
+});
 </script>
 {% endblock %} 

@@ -1,0 +1,29 @@
+.icon-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.form-control:focus, 
+.form-select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(124, 58, 237, 0.25);
+}
+
+.input-group-text {
+    background-color: var(--light-bg);
+    border-color: var(--border-color);
+    color: var(--text-muted);
+}
+
+.progress {
+    height: 20px;
+    background-color: var(--light-bg);
+}
+
+.progress-bar {
+    transition: width 0.3s ease;
+} 

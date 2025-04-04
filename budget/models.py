@@ -2,28 +2,8 @@ from django.db import models
 from django.contrib.auth.models import User
 from decimal import Decimal
 from django.utils import timezone
-
-CATEGORIES = [
-    ('Rent', 'Rent'),
-    ('Food', 'Food'),
-    ('Travel', 'Travel'),
-    ('Bills', 'Bills'),
-    ('Entertainment', 'Entertainment'),
-    ('Shopping', 'Shopping'),
-    ('Healthcare', 'Healthcare'),
-    ('Education', 'Education'),
-    ('Transportation', 'Transportation'),
-    ('Utilities', 'Utilities'),
-    ('Insurance', 'Insurance'),
-    ('Savings', 'Savings'),
-    ('Investment', 'Investment'),
-    ('Gifts', 'Gifts'),
-    ('Fitness', 'Fitness'),
-    ('Pet', 'Pet'),
-    ('Home', 'Home'),
-    ('Personal Care', 'Personal Care'),
-    ('Other', 'Other'),
-]
+from django.core.exceptions import ValidationError
+from .constants import CATEGORIES
 
 class Category(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -64,6 +44,11 @@ class Expense(models.Model):
     def __str__(self):
         return f"{self.description} - ${self.amount}"
 
+    def clean(self):
+        current_date = timezone.now().date()
+        if self.date and self.date > current_date:
+            raise ValidationError({'date': 'Expense date cannot be in the future.'})
+
     class Meta:
         ordering = ['-date', '-created_at']
 
@@ -91,6 +76,11 @@ class Income(models.Model):
 
     def __str__(self):
         return f"{self.source.name} - ₹{self.amount}"
+
+    def clean(self):
+        current_date = timezone.now().date()
+        if self.date and self.date > current_date:
+            raise ValidationError({'date': 'Income date cannot be in the future.'})
 
     class Meta:
         ordering = ['-date']

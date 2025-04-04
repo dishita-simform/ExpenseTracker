@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}{% if expense %}Edit Expense{% else %}Add Expense{% endif %} - Budget Tracker{% endblock %}
 
@@ -15,7 +16,7 @@
                         <h2 class="h4 mb-0">{% if expense %}Edit Expense{% else %}Add New Expense{% endif %}</h2>
                     </div>
 
-                    <form method="post" class="needs-validation" novalidate>
+                    <form method="post" class="needs-validation" novalidate id="expenseForm" data-is-editing="{% if expense %}true{% else %}false{% endif %}">
                         {% csrf_token %}
                         
                         <div class="row g-3">
@@ -66,14 +67,16 @@
                                 <label for="{{ form.date.id_for_label }}" class="form-label">Date</label>
                                 <div class="input-group">
                                     <span class="input-group-text"><i class="fas fa-calendar"></i></span>
-                                    <input type="date" class="form-control" name="date" id="{{ form.date.id_for_label }}" required 
-                                           min="{{ today }}" value="{{ today }}">
+                                    {{ form.date }}
                                 </div>
                                 {% if form.date.errors %}
                                 <div class="invalid-feedback d-block">
                                     {{ form.date.errors|join:", " }}
                                 </div>
                                 {% endif %}
+                                <div id="dateError" class="invalid-feedback d-none">
+                                    Expense date cannot be in the future.
+                                </div>
                             </div>
                         </div>
 
@@ -114,19 +117,5 @@
     }
 </style>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Form validation
-    const forms = document.querySelectorAll('.needs-validation');
-    Array.from(forms).forEach(form => {
-        form.addEventListener('submit', event => {
-            if (!form.checkValidity()) {
-                event.preventDefault();
-                event.stopPropagation();
-            }
-            form.classList.add('was-validated');
-        }, false);
-    });
-});
-</script>
+<script src="{% static 'js/expense_form.js' %}"></script>
 {% endblock %} 

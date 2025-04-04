@@ -1,7 +1,12 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load budget_filters %}
 
 {% block title %}Budget Settings - Budget Tracker{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/budget_settings.css' %}">
+{% endblock %}
 
 {% block content %}
 <div class="container-fluid">
@@ -9,6 +14,11 @@
         <main class="col-md-12 ms-sm-auto col-lg-12 px-md-4 text-center">
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                 <h1 class="h2">Budget Settings</h1>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    <a href="{% url 'budget_history' %}" class="btn btn-sm btn-outline-secondary me-2">
+                        <i class="fas fa-history me-1"></i> Budget History
+                    </a>
+                </div>
             </div>
 
             <div class="card mb-4">
@@ -16,7 +26,6 @@
                     <form id="budgetForm" method="post" action="{% url 'update_monthly_budget' %}">
                         {% csrf_token %}
                         <div class="row">
-                            <!-- Dropdown for Categories -->
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Select Category</label>
                                 <select name="category" class="form-select" id="categorySelect" required>
@@ -27,7 +36,6 @@
                                 </select>
                             </div>
 
-                            <!-- Input for Budget Limit -->
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Set Budget Limit</label>
                                 <div class="input-group">
@@ -37,7 +45,6 @@
                             </div>
                         </div>
 
-                        <!-- Display Set Budgets -->
                         <div id="setBudgets" class="mb-3">
                             <h5>Current Budget for Selected Category:</h5>
                             <p id="currentBudget">Select a category to see the budget.</p>
@@ -48,10 +55,9 @@
                 </div>
             </div>
 
-            <!-- Updated Budgets Section -->
             <div class="card mb-4">
                 <div class="card-header">
-                    <h5 class="card-title">Updated Budgets</h5>
+                    <h5 class="card-title">Current Month Budgets ({{ month_name }} {{ current_year }})</h5>
                 </div>
                 <div class="card-body">
                     <table class="table" id="budgetTable">
@@ -61,21 +67,39 @@
                                 <th>Budget (₹)</th>
                                 <th>Spent (₹)</th>
                                 <th>Remaining (₹)</th>
+                                <th>Progress</th>
                             </tr>
                         </thead>
                         <tbody id="budgetTableBody">
                             {% for category in categories %}
                                 {% if category.budget %}
                                     <tr id="category-row-{{ category.id }}">
-                                        <td>{{ category.name }}</td>
+                                        <td>
+                                            <i class="fas fa-{{ category.icon }} me-2"></i>
+                                            {{ category.name }}
+                                        </td>
                                         <td>₹{{ category.budget }}</td>
                                         <td>₹{{ category.spent|default:0 }}</td>
                                         <td>₹{{ category.remaining|default:0 }}</td>
+                                        <td>
+                                            <div class="progress">
+                                                {% with percentage=category.spent|div:category.budget|mul:100 %}
+                                                    <div class="progress-bar {% if percentage > 100 %}bg-danger{% elif percentage > 80 %}bg-warning{% else %}bg-success{% endif %}" 
+                                                         role="progressbar" 
+                                                         style="width: {{ percentage }}%;" 
+                                                         aria-valuenow="{{ percentage }}" 
+                                                         aria-valuemin="0" 
+                                                         aria-valuemax="100">
+                                                        {{ percentage|floatformat:0 }}%
+                                                    </div>
+                                                {% endwith %}
+                                            </div>
+                                        </td>
                                     </tr>
                                 {% endif %}
                             {% empty %}
                             <tr>
-                                <td colspan="4" class="text-center">No categories with budgets set.</td>
+                                <td colspan="5" class="text-center">No categories with budgets set.</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -87,55 +111,81 @@
 </div>
 
 <script>
-    const categories = {{ categories_json|safe }}; // categories_json should be a JSON-safe list passed from backend
+    const categories = JSON.parse('{{ categories_json|escapejs }}');
+
+    function updateBudgetTable(categoryId, budgetLimit, spent, remaining) {
+        const rowId = `category-row-${categoryId}`;
+        const existingRow = document.getElementById(rowId);
+        
+        const category = categories.find(c => c.id == categoryId);
+        if (!category) return;
+        
+        const percentage = budgetLimit > 0 ? (spent / budgetLimit) * 100 : 0;
+        const progressBarClass = percentage > 100 ? 'bg-danger' : (percentage > 80 ? 'bg-warning' : 'bg-success');
+        
+        const newRow = `
+            <tr id="${rowId}">
+                <td>
+                    <i class="fas fa-${category.icon} me-2"></i>
+                    ${category.name}
+                </td>
+                <td>₹${budgetLimit}</td>
+                <td>₹${spent}</td>
+                <td>₹${remaining}</td>
+                <td>
+                    <div class="progress">
+                        <div class="progress-bar ${progressBarClass}" 
+                             role="progressbar" 
+                             style="width: ${percentage}%;" 
+                             aria-valuenow="${percentage}" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100">
+                            ${percentage.toFixed(0)}%
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        `;
+        
+        if (existingRow) {
+            existingRow.outerHTML = newRow;
+        } else {
+            document.getElementById('budgetTableBody').innerHTML += newRow;
+        }
+    }
 
     document.getElementById('categorySelect').addEventListener('change', function () {
         const selectedId = this.value;
         const selectedCategory = categories.find(c => c.id == selectedId);
-        const budget = selectedCategory && selectedCategory.budget ? `₹${selectedCategory.budget}` : 'No budget set.';
-        document.getElementById('currentBudget').innerText = budget;
+        
+        if (selectedCategory) {
+            const budget = selectedCategory.budget ? `₹${selectedCategory.budget}` : 'No budget set.';
+            document.getElementById('currentBudget').innerText = budget;
+            
+            if (selectedCategory.budget) {
+                document.getElementById('budgetLimit').value = selectedCategory.budget;
+            } else {
+                document.getElementById('budgetLimit').value = '';
+            }
+        }
     });
 
     document.getElementById('budgetForm').addEventListener('submit', function (e) {
-        e.preventDefault(); // prevent default form submission
-
         const categoryId = document.getElementById('categorySelect').value;
         const budgetLimit = document.getElementById('budgetLimit').value;
-        const monthlyIncome = document.getElementById('monthlyIncome').value;
-        const savingsTarget = document.getElementById('savingsTarget').value;
-
+        
         const selectedCategory = categories.find(c => c.id == categoryId);
-
         if (selectedCategory) {
-            selectedCategory.budget = budgetLimit;
-
-            const spent = selectedCategory.spent || 0;
-            const remaining = budgetLimit - spent;
-
-            const rowId = `category-row-${categoryId}`;
-            const existingRow = document.getElementById(rowId);
-
-            const newRow = `
-                <tr id="${rowId}">
-                    <td>${selectedCategory.name}</td>
-                    <td>₹${budgetLimit}</td>
-                    <td>₹${spent}</td>
-                    <td>₹${remaining}</td>
-                </tr>
-            `;
-
-            if (existingRow) {
-                existingRow.outerHTML = newRow;
-            } else {
-                document.getElementById('budgetTableBody').innerHTML += newRow;
-            }
-
-            document.getElementById('currentBudget').innerText = `₹${budgetLimit}`;
-            alert("Budget updated!");
+            selectedCategory.budget = parseFloat(budgetLimit);
+            selectedCategory.remaining = selectedCategory.budget - selectedCategory.spent;
+            
+            updateBudgetTable(
+                categoryId, 
+                budgetLimit, 
+                selectedCategory.spent, 
+                selectedCategory.remaining
+            );
         }
-
-        // Optionally, you can submit using AJAX (fetch) to persist to the server
-        this.submit(); // remove if you handle it fully with AJAX
     });
 </script>
 {% endblock %}

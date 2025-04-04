@@ -24,8 +24,7 @@ def home(request):
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/', include('budget.urls')),
-    path('', home, name='home'),  # Root URL redirects to dashboard
+    path('', include('budget.urls')),  # Include budget URLs at root level
     path('accounts/logout/', views.custom_logout, name='logout'),  # Custom logout view
     path('accounts/', include('django.contrib.auth.urls')),  # Django auth URLs
     path('auth/', include('dj_rest_auth.urls')),  # DRF auth URLs
