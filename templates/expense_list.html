@@ -48,11 +48,7 @@
                         {% for expense in expenses %}
                         <tr>
                             <td>{{ expense.date|date:"M d, Y" }}</td>
-                            <td>
-                                <span class="badge bg-primary bg-opacity-10 text-primary">
-                                    {{ expense.category }}
-                                </span>
-                            </td>
+                            <td>{{ expense.category.name }}</td>
                             <td>{{ expense.description }}</td>
                             <td class="text-end">₹{{ expense.amount|floatformat:2 }}</td>
                             <td class="text-end">
