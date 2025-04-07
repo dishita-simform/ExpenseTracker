@@ -5,6 +5,7 @@ from . import views
 
 router = DefaultRouter()
 router.register(r'api/expenses', views.ExpenseViewSet, basename='expense')
+router.register(r'api/categories', views.CategoryViewSet, basename='category')
 
 def home(request):
     return redirect('dashboard')
@@ -26,6 +27,10 @@ urlpatterns = [
     path('add-transaction/', views.add_transaction, name='add_transaction'),
     path('budget-settings/', views.budget_settings, name='budget_settings'),
     path('budget-settings/update-monthly/', views.update_monthly_budget, name='update_monthly_budget'),
+    path('categories/', views.category_list, name='category_list'),
+    path('categories/add/', views.add_category, name='add_category'),
+    path('categories/<int:category_id>/edit/', views.edit_category, name='edit_category'),
+    path('categories/<int:category_id>/delete/', views.delete_category, name='delete_category'),
     path('reports/', views.reports, name='reports'),
     path('api/', include(router.urls)),
     path('api/transaction/<int:transaction_id>/', views.get_transaction, name='get_transaction'),

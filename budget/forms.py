@@ -37,11 +37,7 @@ class ExpenseForm(forms.ModelForm):
         user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
         if user:
-            # Get user's categories from the database
-            categories = Category.objects.filter(user=user)
-            # Create choices list with categories from the database
-            choices = [(cat.id, cat.name) for cat in categories]
-            self.fields['category'].choices = choices
+            self.fields['category'].queryset = Category.objects.filter(user=user)
             
             # Set default date to today if not provided
             if not self.instance.pk and not self.data.get('date'):
@@ -52,10 +48,8 @@ class ExpenseForm(forms.ModelForm):
     
     def clean_date(self):
         date = self.cleaned_data.get('date')
-        current_date = timezone.now().date()
-        if date and date > current_date:
-            raise forms.ValidationError('Expense date cannot be in the future.')
-        
+        if date and date > timezone.now().date():
+            raise forms.ValidationError("Expense date cannot be in the future.")
         return date
 
 class IncomeForm(forms.ModelForm):

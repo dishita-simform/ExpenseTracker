@@ -1,12 +1,18 @@
 from rest_framework import serializers
-from .models import Expense
+from .models import Expense, Category
 
-CATEGORIES = ['Rent', 'Food', 'Travel', 'Bills', 'Entertainment', 'Other']
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ['id', 'name', 'icon', 'color']
 
 class ExpenseSerializer(serializers.ModelSerializer):
+    category_name = serializers.CharField(source='category.name', read_only=True)
+    
     class Meta:
         model = Expense
-        fields = '__all__'
+        fields = ['id', 'user', 'category', 'category_name', 'amount', 'description', 'date', 'created_at', 'updated_at']
+        read_only_fields = ['user', 'created_at', 'updated_at']
 
     def validate_amount(self, value):
         if value <= 0:
@@ -14,7 +20,7 @@ class ExpenseSerializer(serializers.ModelSerializer):
         return value
 
     def validate_category(self, value):
-        if value not in CATEGORIES:
+        if not Category.objects.filter(id=value.id).exists():
             raise serializers.ValidationError("Invalid category.")
         return value
 

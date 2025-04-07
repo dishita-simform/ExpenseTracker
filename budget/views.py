@@ -1,7 +1,7 @@
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from .models import Expense, Category, MonthlyBudget, Budget, Income, IncomeSource, CATEGORIES
-from .serializers import ExpenseSerializer
+from .serializers import ExpenseSerializer, CategorySerializer
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -15,22 +15,35 @@ from .forms import CustomUserCreationForm, ExpenseForm, IncomeForm, BudgetForm
 from django.contrib.auth import logout
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
-from .constants import CATEGORIES
+from .constants import CATEGORIES, DEFAULT_CATEGORIES, DEFAULT_CATEGORY_ICONS
 import calendar
+
+class CategoryViewSet(viewsets.ModelViewSet):
+    serializer_class = CategorySerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Category.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
 
 class ExpenseViewSet(viewsets.ModelViewSet):
     serializer_class = ExpenseSerializer
     permission_classes = [IsAuthenticated]
-    queryset = Expense.objects.all()
 
     def get_queryset(self):
-        return self.queryset.filter(user=self.request.user)
+        return Expense.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
 
 def home(request):
     if request.user.is_authenticated:
         return redirect('dashboard')
     return render(request, 'home.html')
 
+@login_required
 def register(request):
     if request.user.is_authenticated:
         return redirect('dashboard')
@@ -39,6 +52,8 @@ def register(request):
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
             user = form.save()
+            # Create default categories for the new user
+            Category.create_default_categories(user)
             messages.success(request, 'Account created successfully! Please log in.')
             return redirect('login')
     else:
@@ -95,7 +110,7 @@ def expense_list(request):
 @login_required
 def add_expense(request):
     if request.method == 'POST':
-        form = ExpenseForm(request.POST, user=request.user)
+        form = ExpenseForm(request.POST)
         if form.is_valid():
             expense = form.save(commit=False)
             expense.user = request.user
@@ -103,11 +118,12 @@ def add_expense(request):
             messages.success(request, 'Expense added successfully!')
             return redirect('expense_list')
     else:
-        form = ExpenseForm(user=request.user)
+        form = ExpenseForm()
+        # Get user's categories
+        categories = Category.objects.filter(user=request.user)
+        form.fields['category'].queryset = categories
     
-    # Get current date for the template
-    today = timezone.now().date()
-    return render(request, 'expense_form.html', {'form': form, 'today': today})
+    return render(request, 'budget/add_expense.html', {'form': form})
 
 @login_required
 def edit_expense(request, expense_id):
@@ -522,53 +538,80 @@ def update_monthly_budget(request):
     return redirect('budget_settings')
 
 @login_required
+def category_list(request):
+    categories = Category.objects.filter(user=request.user)
+    return render(request, 'budget/category_list.html', {'categories': categories})
+
+@login_required
 def add_category(request):
     if request.method == 'POST':
         name = request.POST.get('name')
-        # Validate that the name is in the CATEGORIES list
-        if not any(name == category[0] for category in CATEGORIES):
-            messages.error(request, 'Invalid category selected.')
-            return redirect('budget_settings')
-            
-        try:
-            Category.objects.create(
+        color = request.POST.get('color')
+        icon = request.POST.get('icon')
+        description = request.POST.get('description')
+        budget = request.POST.get('budget', 0)
+
+        if name:
+            category = Category.objects.create(
                 user=request.user,
                 name=name,
-                budget=Decimal(request.POST.get('budget', 0)),
-                icon=request.POST.get('icon', 'ellipsis-h')
+                color=color or DEFAULT_CATEGORIES.get(name, 'primary'),
+                icon=icon or DEFAULT_CATEGORY_ICONS.get(name, 'receipt'),
+                description=description,
+                budget=budget
             )
-            messages.success(request, 'Category added successfully.')
-        except Exception as e:
-            messages.error(request, f'Error adding category: {str(e)}')
-    return redirect('budget_settings')
+            messages.success(request, f'Category "{name}" created successfully!')
+            return redirect('category_list')
+        else:
+            messages.error(request, 'Category name is required.')
+    
+    return render(request, 'budget/add_category.html', {
+        'default_colors': DEFAULT_CATEGORIES,
+        'default_icons': DEFAULT_CATEGORY_ICONS
+    })
 
 @login_required
-def update_category(request, category_id):
+def edit_category(request, category_id):
+    category = get_object_or_404(Category, id=category_id, user=request.user)
+    
     if request.method == 'POST':
         name = request.POST.get('name')
-        # Validate that the name is in the CATEGORIES list
-        if not any(name == category[0] for category in CATEGORIES):
-            messages.error(request, 'Invalid category selected.')
-            return redirect('budget_settings')
-            
-        try:
-            category = get_object_or_404(Category, id=category_id, user=request.user)
+        color = request.POST.get('color')
+        icon = request.POST.get('icon')
+        description = request.POST.get('description')
+        budget = request.POST.get('budget')
+        is_active = request.POST.get('is_active') == 'on'
+
+        if name:
             category.name = name
-            category.budget = Decimal(request.POST.get('budget', 0))
-            category.icon = request.POST.get('icon', 'ellipsis-h')
+            category.color = color
+            category.icon = icon
+            category.description = description
+            category.budget = budget
+            category.is_active = is_active
             category.save()
-            messages.success(request, 'Category updated successfully.')
-        except Exception as e:
-            messages.error(request, f'Error updating category: {str(e)}')
-    return redirect('budget_settings')
+            messages.success(request, f'Category "{name}" updated successfully!')
+            return redirect('category_list')
+        else:
+            messages.error(request, 'Category name is required.')
+    
+    return render(request, 'budget/edit_category.html', {
+        'category': category,
+        'default_colors': DEFAULT_CATEGORIES,
+        'default_icons': DEFAULT_CATEGORY_ICONS
+    })
 
 @login_required
 def delete_category(request, category_id):
+    category = get_object_or_404(Category, id=category_id, user=request.user)
+    
     if request.method == 'POST':
-        category = get_object_or_404(Category, id=category_id, user=request.user)
+        name = category.name
         category.delete()
-        messages.success(request, 'Category deleted successfully.')
-    return redirect('budget_settings')
+        messages.success(request, f'Category "{name}" deleted successfully!')
+        return redirect('category_list')
+    
+    return render(request, 'budget/delete_category.html', {'category': category})
 
 @login_required
 def add_transaction(request):
