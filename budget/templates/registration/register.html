@@ -1,6 +1,6 @@
-{% extends "base.html" %}
+{% extends "budget/base.html" %}
 
-{% block title %}Login - Budget Tracker{% endblock %}
+{% block title %}Register - Budget Tracker{% endblock %}
 
 {% with hide_sidebar=True %}
 {% block content %}
@@ -11,36 +11,36 @@
                 <div class="welcome-icon mb-3">
                     <i class="fas fa-wallet"></i>
                 </div>
-                <h1 class="display-4 fw-bold mb-3" style="background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-                    Welcome Back!
+                <h1 class="display-4 fw-bold mb-3" style="background: var(--gradient-primary); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                    Join Budget Tracker
                 </h1>
-                <p class="lead text-muted mb-4">Track your expenses and manage your budget with ease.</p>
+                <p class="lead text-muted mb-4">Start your journey towards better financial management.</p>
                 <div class="auth-features">
                     <div class="d-flex align-items-center mb-3">
-                        <div class="icon-circle me-3" style="background: var(--gradient-success);">
-                            <i class="fas fa-chart-line"></i>
+                        <div class="icon-circle me-3" style="background: var(--gradient-primary);">
+                            <i class="fas fa-shield-alt"></i>
                         </div>
                         <div class="text-start">
-                            <h6 class="mb-1">Smart Analytics</h6>
-                            <small class="text-muted">Track your spending patterns</small>
+                            <h6 class="mb-1">Secure & Private</h6>
+                            <small class="text-muted">Your data is encrypted and protected</small>
                         </div>
                     </div>
                     <div class="d-flex align-items-center mb-3">
-                        <div class="icon-circle me-3" style="background: var(--gradient-primary);">
-                            <i class="fas fa-piggy-bank"></i>
+                        <div class="icon-circle me-3" style="background: var(--gradient-success);">
+                            <i class="fas fa-mobile-alt"></i>
                         </div>
                         <div class="text-start">
-                            <h6 class="mb-1">Save Money</h6>
-                            <small class="text-muted">Set and achieve your savings goals</small>
+                            <h6 class="mb-1">Mobile Friendly</h6>
+                            <small class="text-muted">Access from any device</small>
                         </div>
                     </div>
                     <div class="d-flex align-items-center">
                         <div class="icon-circle me-3" style="background: var(--gradient-danger);">
-                            <i class="fas fa-bell"></i>
+                            <i class="fas fa-headset"></i>
                         </div>
                         <div class="text-start">
-                            <h6 class="mb-1">Smart Notifications</h6>
-                            <small class="text-muted">Stay on top of your budget</small>
+                            <h6 class="mb-1">24/7 Support</h6>
+                            <small class="text-muted">We're here to help you</small>
                         </div>
                     </div>
                 </div>
@@ -50,8 +50,8 @@
     <div class="col-lg-6">
         <div class="auth-form-container">
             <div class="text-center mb-3">
-                <h2 class="fw-bold">Login to Your Account</h2>
-                <p class="text-muted small mb-0">Enter your credentials to access your account</p>
+                <h2 class="fw-bold">Create Your Account</h2>
+                <p class="text-muted small mb-0">Fill in your details to get started</p>
             </div>
             
             <form method="post" class="needs-validation" novalidate>
@@ -59,10 +59,18 @@
                 {% if form.errors %}
                     <div class="alert alert-danger py-2">
                         <i class="fas fa-exclamation-circle me-2"></i>
-                        Invalid username or password. Please try again.
+                        {% for field, errors in form.errors.items %}
+                            {% for error in errors %}
+                                {% if field != '__all__' %}
+                                    {{ field|title }}: {{ error }}<br>
+                                {% else %}
+                                    {{ error }}<br>
+                                {% endif %}
+                            {% endfor %}
+                        {% endfor %}
                     </div>
                 {% endif %}
-
+                
                 <div class="social-auth mb-3">
                     <div class="d-grid gap-2">
                         <button type="button" class="btn btn-outline-light social-btn google-btn">
@@ -77,46 +85,95 @@
                 </div>
 
                 <div class="separator mb-3">
-                    <span class="separator-text">or login with email</span>
+                    <span class="separator-text">or register with email</span>
                 </div>
                 
-                <div class="form-floating mb-3">
-                    <input type="text" name="username" class="form-control" id="username" placeholder="Username" required>
+                <div class="row g-2 mb-2">
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            <input type="text" name="first_name" class="form-control {% if form.first_name.errors %}is-invalid{% endif %}" 
+                                   id="first_name" placeholder="First Name" required 
+                                   value="{{ form.first_name.value|default:'' }}">
+                            <label for="first_name">First Name</label>
+                            <div class="invalid-feedback">
+                                {% for error in form.first_name.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            <input type="text" name="last_name" class="form-control {% if form.last_name.errors %}is-invalid{% endif %}" 
+                                   id="last_name" placeholder="Last Name" required 
+                                   value="{{ form.last_name.value|default:'' }}">
+                            <label for="last_name">Last Name</label>
+                            <div class="invalid-feedback">
+                                {% for error in form.last_name.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-floating mb-2">
+                    <input type="text" name="username" class="form-control {% if form.username.errors %}is-invalid{% endif %}" 
+                           id="username" placeholder="Username" required 
+                           value="{{ form.username.value|default:'' }}">
                     <label for="username">Username</label>
                     <div class="invalid-feedback">
-                        Please enter your username.
+                        {% for error in form.username.errors %}
+                            {{ error }}
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <div class="form-floating mb-2">
+                    <input type="email" name="email" class="form-control {% if form.email.errors %}is-invalid{% endif %}" 
+                           id="email" placeholder="Email" required 
+                           value="{{ form.email.value|default:'' }}">
+                    <label for="email">Email</label>
+                    <div class="invalid-feedback">
+                        {% for error in form.email.errors %}
+                            {{ error }}
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <div class="form-floating mb-2">
+                    <input type="password" name="password1" class="form-control {% if form.password1.errors %}is-invalid{% endif %}" 
+                           id="password1" placeholder="Password" required>
+                    <label for="password1">Password</label>
+                    <div class="invalid-feedback">
+                        {% for error in form.password1.errors %}
+                            {{ error }}
+                        {% endfor %}
                     </div>
                 </div>
                 
                 <div class="form-floating mb-3">
-                    <input type="password" name="password" class="form-control" id="password" placeholder="Password" required>
-                    <label for="password">Password</label>
+                    <input type="password" name="password2" class="form-control {% if form.password2.errors %}is-invalid{% endif %}" 
+                           id="password2" placeholder="Confirm Password" required>
+                    <label for="password2">Confirm Password</label>
                     <div class="invalid-feedback">
-                        Please enter your password.
+                        {% for error in form.password2.errors %}
+                            {{ error }}
+                        {% endfor %}
                     </div>
-                </div>
-
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <div class="form-check">
-                        <input type="checkbox" class="form-check-input" id="remember-me">
-                        <label class="form-check-label small" for="remember-me">Remember me</label>
-                    </div>
-                    <a href="{% url 'password_reset' %}" class="text-decoration-none small" style="color: var(--primary-color);">
-                        Forgot Password?
-                    </a>
                 </div>
                 
                 <div class="d-grid">
                     <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-sign-in-alt me-2"></i>Login
+                        <i class="fas fa-user-plus me-2"></i>Create Account
                     </button>
                 </div>
             </form>
             
             <div class="text-center mt-3">
-                <p class="mb-0 small">Don't have an account? 
-                    <a href="{% url 'register' %}" class="text-decoration-none" style="color: var(--primary-color);">
-                        Register here
+                <p class="mb-0 small">Already have an account? 
+                    <a href="{% url 'login' %}" class="text-decoration-none" style="color: var(--primary-color);">
+                        Login here
                     </a>
                 </p>
             </div>
@@ -152,6 +209,8 @@
     .form-floating > .form-control:focus {
         border-color: var(--primary-color);
         box-shadow: 0 0 0 0.2rem rgba(124, 58, 237, 0.25);
+        background-clip: padding-box;
+        -webkit-background-clip: padding-box;
     }
     
     .form-floating > label {
@@ -261,11 +320,6 @@
         padding: 0 0.5rem;
         font-size: 0.9rem;
         color: var(--text-secondary);
-    }
-
-    .form-check-input:checked {
-        background-color: var(--primary-color);
-        border-color: var(--primary-color);
     }
 
     @media (max-width: 991.98px) {

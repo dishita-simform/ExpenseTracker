@@ -41,9 +41,8 @@ class ExpenseViewSet(viewsets.ModelViewSet):
 def home(request):
     if request.user.is_authenticated:
         return redirect('dashboard')
-    return render(request, 'home.html')
+    return render(request, 'budget/home.html')
 
-@login_required
 def register(request):
     if request.user.is_authenticated:
         return redirect('dashboard')
@@ -52,10 +51,8 @@ def register(request):
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
             user = form.save()
-            # Create default categories for the new user
-            Category.create_default_categories(user)
-            messages.success(request, 'Account created successfully! Please log in.')
-            return redirect('login')
+            messages.success(request, 'Account created successfully. Please log in.')
+            return redirect('rest_login')
     else:
         form = CustomUserCreationForm()
     
@@ -105,7 +102,7 @@ def expense_list(request):
         'month_names': month_names,
         'selected_month_name': dict(month_names)[selected_month],
     }
-    return render(request, 'expense_list.html', context)
+    return render(request, 'budget/expense_list.html', context)
 
 @login_required
 def add_expense(request):
@@ -139,7 +136,7 @@ def edit_expense(request, expense_id):
     
     # Get current date for the template
     today = timezone.now().date()
-    return render(request, 'expense_form.html', {'form': form, 'expense': expense, 'today': today})
+    return render(request, 'budget/expense_form.html', {'form': form, 'expense': expense, 'today': today})
 
 @login_required
 def delete_expense(request, expense_id):
@@ -148,7 +145,7 @@ def delete_expense(request, expense_id):
         expense.delete()
         messages.success(request, 'Expense deleted successfully!')
         return redirect('expense_list')
-    return render(request, 'expense_confirm_delete.html', {'expense': expense})
+    return render(request, 'budget/expense_confirm_delete.html', {'expense': expense})
 
 @login_required
 def dashboard(request):
@@ -313,7 +310,7 @@ def dashboard(request):
         'month_names': month_names,
         'selected_month_name': dict(month_names)[selected_month]
     }
-    return render(request, 'dashboard.html', context)
+    return render(request, 'budget/dashboard.html', context)
 
 @login_required
 def income_list(request):
@@ -360,7 +357,7 @@ def income_list(request):
         'month_names': month_names,
         'selected_month_name': dict(month_names)[selected_month],
     }
-    return render(request, 'income_list.html', context)
+    return render(request, 'budget/income_list.html', context)
 
 @login_required
 def add_income(request):
@@ -507,7 +504,7 @@ def budget_settings(request):
         'current_year': current_year,
         'month_name': current_date.strftime('%B')
     }
-    return render(request, 'budget_settings.html', context)
+    return render(request, 'budget/budget_settings.html', context)
 
 @login_required
 def update_monthly_budget(request):
@@ -671,7 +668,7 @@ def add_transaction(request):
 @login_required
 def income_source_list(request):
     sources = IncomeSource.objects.filter(user=request.user)
-    return render(request, 'income_source_list.html', {'sources': sources})
+    return render(request, 'budget/income_source_list.html', {'sources': sources})
 
 @login_required
 def add_income_source(request):
@@ -692,7 +689,7 @@ def edit_income_source(request, source_id):
         source.save()
         messages.success(request, 'Income source updated successfully!')
         return redirect('income_source_list')
-    return render(request, 'edit_income_source.html', {'source': source})
+    return render(request, 'budget/edit_income_source.html', {'source': source})
 
 @login_required
 def delete_income_source(request, source_id):
@@ -763,7 +760,7 @@ def reports(request):
         'income_by_source': income_by_source,
     }
     
-    return render(request, 'reports.html', context)
+    return render(request, 'budget/reports.html', context)
 
 def custom_logout(request):
     logout(request)
@@ -817,7 +814,7 @@ def edit_transaction(request, transaction_id):
             'error': 'Invalid request method'
         }, status=400)
     
-    return render(request, 'expense_form.html', {'form': form, 'expense': expense})
+    return render(request, 'budget/expense_form.html', {'form': form, 'expense': expense})
 
 @login_required
 @require_http_methods(["POST"])
@@ -844,7 +841,7 @@ def delete_transaction(request, transaction_id):
             'error': 'Invalid request method'
         }, status=400)
     
-    return render(request, 'confirm_delete.html', {'expense': expense})
+    return render(request, 'budget/confirm_delete.html', {'expense': expense})
 
 @login_required
 def budget_history(request):
@@ -935,7 +932,7 @@ def budget_history(request):
         'selected_month_name': dict(month_names)[selected_month],
         'available_months': available_months
     }
-    return render(request, 'budget_history.html', context)
+    return render(request, 'budget/budget_history.html', context)
 
 @login_required
 def dashboard_data(request):
