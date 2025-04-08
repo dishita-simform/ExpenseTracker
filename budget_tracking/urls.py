@@ -30,6 +30,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from budget.views import home, dashboard
+from .views import CustomLogoutView
 
 class GoogleLoginView(APIView):
     def post(self, request):
@@ -50,7 +51,7 @@ urlpatterns = [
     
     # Web Authentication
     path('accounts/login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
-    path('accounts/logout/', auth_views.LogoutView.as_view(next_page='home'), name='logout'),
+    path('accounts/logout/', CustomLogoutView.as_view(template_name='registration/login.html', http_method_names=['get', 'post']), name='logout'),
     path('accounts/password-reset/', auth_views.PasswordResetView.as_view(template_name='registration/password_reset.html'), name='password_reset'),
     path('accounts/password-reset/done/', auth_views.PasswordResetDoneView.as_view(template_name='registration/password_reset_done.html'), name='password_reset_done'),
     path('accounts/password-reset-confirm/<uidb64>/<token>/', auth_views.PasswordResetConfirmView.as_view(template_name='registration/password_reset_confirm.html'), name='password_reset_confirm'),

@@ -3,6 +3,8 @@ from rest_framework.routers import DefaultRouter
 from django.shortcuts import redirect
 from django.contrib.auth import views as auth_views
 from . import views
+from rest_framework_simplejwt.views import TokenRefreshView
+from .views import budget_statistics, monthly_summary, expense_trends
 
 router = DefaultRouter()
 router.register(r'expenses', views.ExpenseViewSet, basename='expense')
@@ -62,4 +64,19 @@ urlpatterns = [
     path('api/', include(router.urls)),
     path('api/transaction/<int:transaction_id>/', views.get_transaction, name='get_transaction'),
     path('api/dashboard-data/', views.dashboard_data, name='dashboard_data'),
+    
+    # Authentication URLs
+    path('api/token/', views.CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    # API Registration Endpoint
+    # POST /api/register/
+    # Request body: {"username": "string", "email": "string", "password": "string", "first_name": "string" (optional), "last_name": "string" (optional)}
+    # Response: {"user": {"id": integer, "username": "string", "email": "string", "first_name": "string", "last_name": "string"}, "refresh": "string", "access": "string", "message": "string"}
+    path('api/register/', views.register_user, name='register'),
+    path('api/profile/', views.get_user_profile, name='user_profile'),
+    
+    # Stored Procedure URLs
+    path('api/budget-statistics/', budget_statistics, name='budget_statistics'),
+    path('api/monthly-summary/', monthly_summary, name='monthly_summary'),
+    path('api/expense-trends/', expense_trends, name='expense_trends'),
 ]

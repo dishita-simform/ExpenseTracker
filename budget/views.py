@@ -17,6 +17,18 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from .constants import CATEGORIES, DEFAULT_CATEGORIES, DEFAULT_CATEGORY_ICONS
 import calendar
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.tokens import RefreshToken
+from django.contrib.auth import get_user_model
+from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
+from django.db import connection
+from django.contrib.auth.forms import UserCreationForm
+from django.urls import reverse_lazy
+
+User = get_user_model()
 
 class CategoryViewSet(viewsets.ModelViewSet):
     serializer_class = CategorySerializer
@@ -44,15 +56,19 @@ def home(request):
     return render(request, 'budget/home.html')
 
 def register(request):
-    if request.user.is_authenticated:
-        return redirect('dashboard')
-    
+    """
+    View for user registration.
+    Handles both form-based and API-based registration.
+    """
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
             user = form.save()
-            messages.success(request, 'Account created successfully. Please log in.')
-            return redirect('rest_login')
+            # Log the user in after registration
+            from django.contrib.auth import login
+            login(request, user)
+            messages.success(request, 'Registration successful! Welcome to Budget Tracker.')
+            return redirect('dashboard')
     else:
         form = CustomUserCreationForm()
     
@@ -1073,3 +1089,144 @@ def dashboard_data(request):
         'recent_transactions': recent_transactions,
         'budget_categories': budget_categories
     })
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+        if response.status_code == 200:
+            user = User.objects.get(username=request.data.get('username'))
+            response.data['user'] = {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+            }
+        return response
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def register_user(request):
+    """
+    API endpoint for user registration.
+    Accepts POST requests with username, email, password, first_name, and last_name.
+    Returns user data and JWT tokens on success.
+    """
+    username = request.data.get('username')
+    email = request.data.get('email')
+    password = request.data.get('password')
+    first_name = request.data.get('first_name', '')
+    last_name = request.data.get('last_name', '')
+    
+    # Validate required fields
+    if not username or not email or not password:
+        return Response({
+            'error': 'Please provide username, email and password'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Check if username already exists
+    if User.objects.filter(username=username).exists():
+        return Response({
+            'error': 'Username already exists'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Check if email already exists
+    if User.objects.filter(email=email).exists():
+        return Response({
+            'error': 'Email already exists'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Validate password strength
+    if len(password) < 8:
+        return Response({
+            'error': 'Password must be at least 8 characters long'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Create user
+    try:
+        user = User.objects.create_user(
+            username=username,
+            email=email,
+            password=password,
+            first_name=first_name,
+            last_name=last_name
+        )
+        
+        # Generate JWT tokens
+        refresh = RefreshToken.for_user(user)
+        
+        return Response({
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+            },
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+            'message': 'User registered successfully'
+        }, status=status.HTTP_201_CREATED)
+    except Exception as e:
+        return Response({
+            'error': f'Registration failed: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_user_profile(request):
+    user = request.user
+    return Response({
+        'id': user.id,
+        'username': user.username,
+        'email': user.email,
+        'first_name': user.first_name,
+        'last_name': user.last_name,
+    })
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def budget_statistics(request):
+    """
+    Get budget statistics using stored procedure
+    """
+    month = int(request.GET.get('month', timezone.now().month))
+    year = int(request.GET.get('year', timezone.now().year))
+    
+    with connection.cursor() as cursor:
+        cursor.callproc('calculate_monthly_budget', [request.user.id, month, year])
+        columns = [col[0] for col in cursor.description]
+        results = [dict(zip(columns, row)) for row in cursor.fetchall()]
+    
+    return Response(results)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def monthly_summary(request):
+    """
+    Get monthly summary using stored procedure
+    """
+    month = int(request.GET.get('month', timezone.now().month))
+    year = int(request.GET.get('year', timezone.now().year))
+    
+    with connection.cursor() as cursor:
+        cursor.callproc('calculate_monthly_summary', [request.user.id, month, year])
+        columns = [col[0] for col in cursor.description]
+        results = [dict(zip(columns, row)) for row in cursor.fetchall()]
+    
+    return Response(results[0] if results else {})
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def expense_trends(request):
+    """
+    Get expense trends using stored procedure
+    """
+    months = int(request.GET.get('months', 6))
+    
+    with connection.cursor() as cursor:
+        cursor.callproc('get_expense_trends', [request.user.id, months])
+        columns = [col[0] for col in cursor.description]
+        results = [dict(zip(columns, row)) for row in cursor.fetchall()]
+    
+    return Response(results)

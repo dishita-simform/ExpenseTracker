@@ -4,6 +4,13 @@ from decimal import Decimal
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from .constants import CATEGORIES, DEFAULT_CATEGORIES, DEFAULT_CATEGORY_ICONS
+from .validators import (
+    validate_positive_amount,
+    validate_future_date,
+    validate_budget_limit,
+    validate_percentage,
+    validate_currency_format
+)
 
 class Category(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -80,7 +87,7 @@ class Category(models.Model):
 class Budget(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='budget_entries')
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, validators=[validate_positive_amount, validate_budget_limit, validate_currency_format])
     start_date = models.DateField(default=timezone.now)
     end_date = models.DateField(null=True, blank=True)
 
@@ -93,9 +100,9 @@ class Budget(models.Model):
 class Expense(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, validators=[validate_positive_amount, validate_currency_format])
     description = models.CharField(max_length=200)
-    date = models.DateField(default=timezone.now)
+    date = models.DateField(validators=[validate_future_date])
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -126,9 +133,9 @@ class IncomeSource(models.Model):
 class Income(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     source = models.ForeignKey(IncomeSource, on_delete=models.CASCADE)
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, validators=[validate_positive_amount, validate_currency_format])
     description = models.TextField(blank=True)
-    date = models.DateField()
+    date = models.DateField(validators=[validate_future_date])
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

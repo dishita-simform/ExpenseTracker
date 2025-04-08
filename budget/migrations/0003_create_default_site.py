@@ -17,6 +17,7 @@ def remove_default_site(apps, schema_editor):
 class Migration(migrations.Migration):
     dependencies = [
         ('sites', '0001_initial'),
+        ('budget', '0002_category_budget_alter_budget_category'),
     ]
 
     operations = [
