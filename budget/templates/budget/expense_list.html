@@ -24,7 +24,7 @@
                 <div class="col-md-4">
                     <label for="year" class="form-label">Year</label>
                     <select name="year" id="year" class="form-select" onchange="this.form.submit()">
-                        {% for year in available_years %}
+                        {% for year in years %}
                             <option value="{{ year }}" {% if year == selected_year %}selected{% endif %}>{{ year }}</option>
                         {% endfor %}
                     </select>
@@ -32,7 +32,7 @@
                 <div class="col-md-4">
                     <label for="month" class="form-label">Month</label>
                     <select name="month" id="month" class="form-select" onchange="this.form.submit()">
-                        {% for month_num, month_name in month_names %}
+                        {% for month_num, month_name in months %}
                             <option value="{{ month_num }}" {% if month_num == selected_month %}selected{% endif %}>{{ month_name }}</option>
                         {% endfor %}
                     </select>
@@ -50,7 +50,7 @@
                 <div class="card-header bg-transparent py-3">
                     <div class="d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">All Expenses</h5>
-                        <h5 class="mb-0">Total: ₹{{ total_expenses }}</h5>
+                        <h5 class="mb-0">Total: ₹{{ total }}</h5>
                     </div>
                 </div>
                 <div class="card-body p-0">
@@ -60,7 +60,6 @@
                                 <tr>
                                     <th class="ps-4">Date</th>
                                     <th>Category</th>
-                                    <th>Description</th>
                                     <th class="text-end">Amount</th>
                                     <th class="text-end pe-4">Actions</th>
                                 </tr>
@@ -71,13 +70,12 @@
                                     <td class="ps-4">{{ expense.date|date:"M d, Y" }}</td>
                                     <td>
                                         <div class="d-flex align-items-center">
-                                            <div class="category-icon me-2" style="background: {{ expense.category.color }}">
-                                                <i class="{{ expense.category.icon }}"></i>
+                                            <div class="category-icon me-2 bg-danger">
+                                                <i class="fas fa-shopping-cart"></i>
                                             </div>
                                             {{ expense.category.name }}
                                         </div>
                                     </td>
-                                    <td>{{ expense.description|default:"-" }}</td>
                                     <td class="text-end text-danger">₹{{ expense.amount }}</td>
                                     <td class="text-end pe-4">
                                         <button class="btn btn-sm btn-primary me-2" onclick="editExpense('{{ expense.id }}')">
@@ -90,11 +88,11 @@
                                 </tr>
                                 {% empty %}
                                 <tr>
-                                    <td colspan="5" class="text-center py-5">
+                                    <td colspan="4" class="text-center py-5">
                                         <div class="text-muted">
                                             <i class="fas fa-calendar-times fs-2 mb-2"></i>
-                                            <p class="mb-0">No expenses found for {{ selected_month_name }} {{ selected_year }}</p>
-                                            <p class="small text-muted mt-2">Try selecting a different month or add a new expense</p>
+                                            <p class="mb-0">No expense entries found for {{ selected_month_name }} {{ selected_year }}</p>
+                                            <p class="small text-muted mt-2">Try selecting a different month or add a new expense entry</p>
                                         </div>
                                     </td>
                                 </tr>
@@ -124,7 +122,7 @@
                         <select class="form-select" name="category" required>
                             <option value="">Select a category</option>
                             {% for category in categories %}
-                            <option value="{{ category.id }}">{{ category.name }}</option>
+                                <option value="{{ category.id }}">{{ category.name }}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -165,6 +163,10 @@
         font-size: 1rem;
     }
 
+    .bg-danger {
+        background: var(--gradient-danger) !important;
+    }
+
     .table > :not(:first-child) {
         border-top: none;
     }
@@ -183,10 +185,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const dateInput = addExpenseForm.querySelector('input[name="date"]');
     
     // Set default date to today
-    dateInput.value = '{{ today|date:"Y-m-d" }}';
+    const today = new Date().toISOString().split('T')[0];
+    dateInput.value = today;
     
-    // Set max date to today
-    dateInput.max = '{{ today|date:"Y-m-d" }}';
+    // Set max date to today to prevent future dates
+    dateInput.max = today;
     
     // Handle form submission
     addExpenseForm.addEventListener('submit', function(event) {
@@ -204,78 +207,25 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Add new row to the table
-                const tbody = document.querySelector('.table tbody');
-                const newRow = document.createElement('tr');
-                newRow.innerHTML = `
-                    <td class="ps-4">${data.transaction.date}</td>
-                    <td>
-                        <div class="d-flex align-items-center">
-                            <div class="category-icon me-2" style="background: ${data.transaction.category.color}">
-                                <i class="${data.transaction.category.icon}"></i>
-                            </div>
-                            ${data.transaction.category.name}
-                        </div>
-                    </td>
-                    <td>${data.transaction.description || '-'}</td>
-                    <td class="text-end text-danger">₹${data.transaction.amount}</td>
-                    <td class="text-end pe-4">
-                        <button class="btn btn-sm btn-primary me-2" onclick="editExpense('${data.transaction.id}')">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteExpense('${data.transaction.id}')">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </td>
-                `;
+                // Reset form and set date back to today
+                this.reset();
+                dateInput.value = today;
                 
-                // Remove "No expenses found" message if it exists
-                const noEntriesRow = tbody.querySelector('tr td[colspan="5"]');
-                if (noEntriesRow) {
-                    noEntriesRow.parentElement.remove();
-                }
-                
-                // Add the new row at the top
-                tbody.insertBefore(newRow, tbody.firstChild);
-                
-                // Update total expenses
-                const totalElement = document.querySelector('.card-header h5:last-child');
-                const currentTotal = parseFloat(totalElement.textContent.replace('Total: ₹', ''));
-                totalElement.textContent = `Total: ₹${currentTotal + data.transaction.amount}`;
-                
-                // Close modal and reset form
+                // Close modal
                 const modal = bootstrap.Modal.getInstance(document.getElementById('addExpenseModal'));
                 modal.hide();
-                this.reset();
-                dateInput.value = '{{ today|date:"Y-m-d" }}';
                 
-                // Show success message
-                showAlert('success', data.message);
+                // Reload page or update UI as needed
+                window.location.reload();
             } else {
-                showAlert('danger', data.error || 'Error adding expense');
+                alert(data.error || 'Error adding expense');
             }
         })
         .catch(error => {
-            showAlert('danger', 'Error adding expense');
             console.error('Error:', error);
+            alert('Error adding expense');
         });
     });
-    
-    // Function to show alert messages
-    function showAlert(type, message) {
-        const alertDiv = document.createElement('div');
-        alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
-        alertDiv.setAttribute('role', 'alert');
-        alertDiv.innerHTML = `
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        `;
-        document.body.appendChild(alertDiv);
-        
-        setTimeout(() => {
-            alertDiv.remove();
-        }, 3000);
-    }
 });
 
 function editExpense(id) {
@@ -303,7 +253,7 @@ function deleteExpense(id) {
                 // Update total expenses
                 const totalElement = document.querySelector('.card-header h5:last-child');
                 const currentTotal = parseFloat(totalElement.textContent.replace('Total: ₹', ''));
-                totalElement.textContent = `Total: ₹${currentTotal - data.amount}`;
+                totalElement.textContent = `Total: ₹${currentTotal - data.amount|floatformat:2}`;
                 
                 // Show success message
                 showAlert('success', 'Expense entry deleted successfully');

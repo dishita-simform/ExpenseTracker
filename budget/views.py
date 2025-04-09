@@ -11,7 +11,7 @@ import json
 from datetime import datetime, timedelta, date
 from django.utils import timezone
 from decimal import Decimal
-from .forms import CustomUserCreationForm, ExpenseForm, IncomeForm, BudgetForm
+from .forms import ExpenseForm, IncomeForm, BudgetForm, RegisterForm
 from django.contrib.auth import logout
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
@@ -25,8 +25,10 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from django.db import connection
-from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.forms import UserCreationForm, PasswordResetForm
 from django.urls import reverse_lazy
+from django.views.generic import CreateView
+from django.core.mail import send_mail
 
 User = get_user_model()
 
@@ -56,67 +58,55 @@ def home(request):
     return render(request, 'budget/home.html')
 
 def register(request):
-    """
-    View for user registration.
-    Handles both form-based and API-based registration.
-    """
     if request.method == 'POST':
-        form = CustomUserCreationForm(request.POST)
+        form = RegisterForm(request.POST)
         if form.is_valid():
             user = form.save()
-            # Log the user in after registration
-            from django.contrib.auth import login
-            login(request, user)
-            messages.success(request, 'Registration successful! Welcome to Budget Tracker.')
-            return redirect('dashboard')
+            username = form.cleaned_data.get('username')
+            messages.success(request, f'Account created for {username}! You can now log in.')
+            return redirect('login')
     else:
-        form = CustomUserCreationForm()
-    
+        form = RegisterForm()
     return render(request, 'registration/register.html', {'form': form})
 
 @login_required
 def expense_list(request):
-    # Get all available years from expense records
-    available_years = sorted(set(exp.date.year for exp in Expense.objects.filter(user=request.user)), reverse=True)
-    if not available_years:
-        available_years = [timezone.now().year]
-    
-    # Get selected month and year from request or default to current month
-    selected_month = request.GET.get('month', timezone.now().month)
-    selected_year = request.GET.get('year', timezone.now().year)
-    
-    # Convert to integers
-    try:
-        selected_month = int(selected_month)
-        selected_year = int(selected_year)
-    except (ValueError, TypeError):
-        selected_month = timezone.now().month
-        selected_year = timezone.now().year
-    
-    # Get expenses for selected month
+    # Get current year and month
+    current_date = timezone.now()
+    current_year = current_date.year
+    current_month = current_date.month
+
+    # Get selected year and month from request or use current
+    selected_year = int(request.GET.get('year', current_year))
+    selected_month = int(request.GET.get('month', current_month))
+
+    # Generate year and month choices
+    current_year = timezone.now().year
+    years = range(current_year - 5, current_year + 1)  # Last 5 years
+    months = [(i, calendar.month_name[i]) for i in range(1, 13)]
+
+    # Filter expenses by selected year and month
     expenses = Expense.objects.filter(
         user=request.user,
-        date__month=selected_month,
-        date__year=selected_year
-    ).order_by('-date', '-id')
-    
-    total_expenses = expenses.aggregate(total=Sum('amount'))['total'] or 0
-    
-    # Create month names for dropdown
-    month_names = [
-        (1, 'January'), (2, 'February'), (3, 'March'), (4, 'April'),
-        (5, 'May'), (6, 'June'), (7, 'July'), (8, 'August'),
-        (9, 'September'), (10, 'October'), (11, 'November'), (12, 'December')
-    ]
-    
+        date__year=selected_year,
+        date__month=selected_month
+    ).order_by('-date')
+
+    # Calculate total
+    total = expenses.aggregate(total=Sum('amount'))['total'] or 0
+
+    categories = Category.objects.filter(user=request.user).distinct()
+    today = timezone.now()
+
     context = {
         'expenses': expenses,
-        'total_expenses': total_expenses,
-        'selected_month': selected_month,
+        'categories': categories,
+        'today': today,
+        'years': years,
+        'months': months,
         'selected_year': selected_year,
-        'available_years': available_years,
-        'month_names': month_names,
-        'selected_month_name': dict(month_names)[selected_month],
+        'selected_month': selected_month,
+        'total': total,
     }
     return render(request, 'budget/expense_list.html', context)
 
@@ -629,30 +619,42 @@ def delete_category(request, category_id):
 @login_required
 def add_transaction(request):
     if request.method == 'POST':
-        category_id = request.POST.get('category')
-        amount = request.POST.get('amount')
-        description = request.POST.get('description')
-        date_str = request.POST.get('date')
-
         try:
-            # Parse the date string to a date object
-            date = datetime.strptime(date_str, '%Y-%m-%d').date()
-            category = Category.objects.get(id=category_id, user=request.user)
-            
+            # Get form data
+            category_id = request.POST.get('category')
+            amount = request.POST.get('amount')
+            description = request.POST.get('description', '')
+            date_str = request.POST.get('date')
+
+            # Debug logging
+            print(f"Received data: category={category_id}, amount={amount}, date={date_str}, description={description}")
+
+            # Validate required fields
+            if not all([category_id, amount, date_str]):
+                raise ValueError('Category, amount, and date are required')
+
+            # Get the category - make sure to filter by user
+            try:
+                category = Category.objects.get(id=category_id, user=request.user)
+            except Category.DoesNotExist:
+                raise ValueError('Invalid category selected')
+
             # Create the expense record
             expense = Expense.objects.create(
                 user=request.user,
                 category=category,
-                amount=amount,
+                amount=Decimal(str(amount).replace(',', '')),  # Handle comma-separated numbers
                 description=description,
-                date=date
+                date=date_str
             )
 
+            messages.success(request, 'Expense added successfully!')
+            
             # If this is an AJAX request, return JSON response
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({
                     'success': True,
-                    'message': 'Transaction added successfully',
+                    'message': 'Expense added successfully',
                     'transaction': {
                         'id': expense.id,
                         'type': 'expense',
@@ -663,21 +665,25 @@ def add_transaction(request):
                         },
                         'description': description,
                         'amount': -float(amount),
-                        'date': date.strftime('%b %d, %Y')
+                        'date': expense.date.strftime('%b %d, %Y')
                     }
                 })
 
-            messages.success(request, 'Transaction added successfully!')
             return redirect('dashboard')
-            
+
+        except ValueError as e:
+            error_message = str(e)
         except Exception as e:
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({
-                    'success': False,
-                    'error': str(e)
-                }, status=400)
-            messages.error(request, f'Error adding transaction: {str(e)}')
-            return redirect('dashboard')
+            error_message = f'Error adding expense: {str(e)}'
+            print(f"Error details: {str(e)}")  # Debug logging
+
+        messages.error(request, error_message)
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'error': error_message
+            }, status=400)
 
     return redirect('dashboard')
 
@@ -778,9 +784,10 @@ def reports(request):
     
     return render(request, 'budget/reports.html', context)
 
+@login_required
 def custom_logout(request):
     logout(request)
-    return redirect('home')
+    return render(request, 'registration/logout.html')
 
 @login_required
 @require_http_methods(["GET"])
@@ -1230,3 +1237,41 @@ def expense_trends(request):
         results = [dict(zip(columns, row)) for row in cursor.fetchall()]
     
     return Response(results)
+
+class RegisterView(CreateView):
+    form_class = UserCreationForm
+    template_name = 'registration/register.html'
+    success_url = reverse_lazy('login')
+
+class CustomPasswordResetForm(PasswordResetForm):
+    def clean_email(self):
+        email = self.cleaned_data['email']
+        User = get_user_model()
+        if not User.objects.filter(email=email).exists():
+            raise forms.ValidationError("There is no user registered with this email address.")
+        return email
+
+def custom_password_reset(request):
+    if request.method == 'POST':
+        form = CustomPasswordResetForm(request.POST)
+        if form.is_valid():
+            email = form.cleaned_data['email']
+            try:
+                form.save(
+                    request=request,
+                    from_email='dishita.expensetracker2025@gmail.com',
+                    email_template_name='registration/password_reset_email.html',
+                    subject_template_name='registration/password_reset_subject.txt',
+                    html_email_template_name='registration/password_reset_email.html'
+                )
+                messages.success(request, f"Password reset link has been sent to {email}")
+                return redirect('password_reset_done')
+            except Exception as e:
+                print(f"Email error: {str(e)}")  # For debugging
+                messages.error(request, "Error sending email. Please try again.")
+        else:
+            messages.error(request, "Invalid email address. Please provide a registered email.")
+    else:
+        form = CustomPasswordResetForm()
+    
+    return render(request, 'registration/password_reset_form.html', {'form': form})

@@ -9,38 +9,38 @@
         <div class="auth-illustration">
             <div class="text-center">
                 <div class="welcome-icon mb-3">
-                    <i class="fas fa-wallet"></i>
+                    <i class="fas fa-user-plus"></i>
                 </div>
-                <h1 class="display-4 fw-bold mb-3" style="background: var(--gradient-primary); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-                    Join Budget Tracker
+                <h1 class="display-4 fw-bold mb-3" style="background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                    Create Account
                 </h1>
-                <p class="lead text-muted mb-4">Start your journey towards better financial management.</p>
+                <p class="lead text-muted mb-4">Join us and take control of your finances today.</p>
                 <div class="auth-features">
                     <div class="d-flex align-items-center mb-3">
-                        <div class="icon-circle me-3" style="background: var(--gradient-primary);">
-                            <i class="fas fa-shield-alt"></i>
+                        <div class="icon-circle me-3" style="background: var(--gradient-success);">
+                            <i class="fas fa-chart-line"></i>
                         </div>
                         <div class="text-start">
-                            <h6 class="mb-1">Secure & Private</h6>
-                            <small class="text-muted">Your data is encrypted and protected</small>
+                            <h6 class="mb-1">Track Expenses</h6>
+                            <small class="text-muted">Monitor your spending habits</small>
                         </div>
                     </div>
                     <div class="d-flex align-items-center mb-3">
-                        <div class="icon-circle me-3" style="background: var(--gradient-success);">
-                            <i class="fas fa-mobile-alt"></i>
+                        <div class="icon-circle me-3" style="background: var(--gradient-primary);">
+                            <i class="fas fa-piggy-bank"></i>
                         </div>
                         <div class="text-start">
-                            <h6 class="mb-1">Mobile Friendly</h6>
-                            <small class="text-muted">Access from any device</small>
+                            <h6 class="mb-1">Set Budgets</h6>
+                            <small class="text-muted">Plan your financial goals</small>
                         </div>
                     </div>
                     <div class="d-flex align-items-center">
                         <div class="icon-circle me-3" style="background: var(--gradient-danger);">
-                            <i class="fas fa-headset"></i>
+                            <i class="fas fa-chart-pie"></i>
                         </div>
                         <div class="text-start">
-                            <h6 class="mb-1">24/7 Support</h6>
-                            <small class="text-muted">We're here to help you</small>
+                            <h6 class="mb-1">Insights</h6>
+                            <small class="text-muted">Get detailed financial reports</small>
                         </div>
                     </div>
                 </div>
@@ -59,24 +59,21 @@
                 {% if form.errors %}
                     <div class="alert alert-danger py-2">
                         <i class="fas fa-exclamation-circle me-2"></i>
-                        {% for field, errors in form.errors.items %}
-                            {% for error in errors %}
-                                {% if field != '__all__' %}
-                                    {{ field|title }}: {{ error }}<br>
-                                {% else %}
-                                    {{ error }}<br>
-                                {% endif %}
+                        Please correct the errors below.
+                        {% for field in form %}
+                            {% for error in field.errors %}
+                                <div class="small">{{ field.label }}: {{ error }}</div>
                             {% endfor %}
                         {% endfor %}
                     </div>
                 {% endif %}
-                
+
                 <div class="social-auth mb-3">
                     <div class="d-grid gap-2">
-                        <button type="button" class="btn btn-outline-light social-btn google-btn">
+                        <a href="{% url 'google_login' %}" class="btn btn-outline-light social-btn google-btn">
                             <img src="https://www.google.com/favicon.ico" alt="Google" class="social-icon">
                             Continue with Google
-                        </button>
+                        </a>
                         <button type="button" class="btn btn-outline-light social-btn facebook-btn">
                             <i class="fab fa-facebook-f social-icon"></i>
                             Continue with Facebook
@@ -87,79 +84,56 @@
                 <div class="separator mb-3">
                     <span class="separator-text">or register with email</span>
                 </div>
-                
-                <div class="row g-2 mb-2">
-                    <div class="col-md-6">
-                        <div class="form-floating">
-                            <input type="text" name="first_name" class="form-control {% if form.first_name.errors %}is-invalid{% endif %}" 
-                                   id="first_name" placeholder="First Name" required 
-                                   value="{{ form.first_name.value|default:'' }}">
-                            <label for="first_name">First Name</label>
-                            <div class="invalid-feedback">
-                                {% for error in form.first_name.errors %}
-                                    {{ error }}
-                                {% endfor %}
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-floating">
-                            <input type="text" name="last_name" class="form-control {% if form.last_name.errors %}is-invalid{% endif %}" 
-                                   id="last_name" placeholder="Last Name" required 
-                                   value="{{ form.last_name.value|default:'' }}">
-                            <label for="last_name">Last Name</label>
-                            <div class="invalid-feedback">
-                                {% for error in form.last_name.errors %}
-                                    {{ error }}
-                                {% endfor %}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="form-floating mb-2">
-                    <input type="text" name="username" class="form-control {% if form.username.errors %}is-invalid{% endif %}" 
-                           id="username" placeholder="Username" required 
-                           value="{{ form.username.value|default:'' }}">
+
+                <div class="form-floating mb-3">
+                    <input type="text" name="username" class="form-control" id="username" placeholder="Username" required>
                     <label for="username">Username</label>
                     <div class="invalid-feedback">
-                        {% for error in form.username.errors %}
-                            {{ error }}
-                        {% endfor %}
+                        Please choose a username.
                     </div>
                 </div>
-                
-                <div class="form-floating mb-2">
-                    <input type="email" name="email" class="form-control {% if form.email.errors %}is-invalid{% endif %}" 
-                           id="email" placeholder="Email" required 
-                           value="{{ form.email.value|default:'' }}">
-                    <label for="email">Email</label>
+
+                <div class="form-floating mb-3">
+                    <input type="email" name="email" class="form-control" id="email" placeholder="Email" required>
+                    <label for="email">Email address</label>
                     <div class="invalid-feedback">
-                        {% for error in form.email.errors %}
-                            {{ error }}
-                        {% endfor %}
+                        Please enter a valid email address.
                     </div>
                 </div>
-                
-                <div class="form-floating mb-2">
-                    <input type="password" name="password1" class="form-control {% if form.password1.errors %}is-invalid{% endif %}" 
-                           id="password1" placeholder="Password" required>
-                    <label for="password1">Password</label>
-                    <div class="invalid-feedback">
-                        {% for error in form.password1.errors %}
-                            {{ error }}
-                        {% endfor %}
-                    </div>
+
+                <div class="form-floating mb-3">
+                    <input type="text" name="first_name" class="form-control" id="first_name" placeholder="First Name">
+                    <label for="first_name">First Name</label>
+                </div>
+
+                <div class="form-floating mb-3">
+                    <input type="text" name="last_name" class="form-control" id="last_name" placeholder="Last Name">
+                    <label for="last_name">Last Name</label>
                 </div>
                 
                 <div class="form-floating mb-3">
-                    <input type="password" name="password2" class="form-control {% if form.password2.errors %}is-invalid{% endif %}" 
-                           id="password2" placeholder="Confirm Password" required>
+                    <input type="password" name="password1" class="form-control" id="password1" placeholder="Password" required>
+                    <label for="password1">Password</label>
+                    <div class="invalid-feedback">
+                        Please enter a password.
+                    </div>
+                </div>
+
+                <div class="form-floating mb-3">
+                    <input type="password" name="password2" class="form-control" id="password2" placeholder="Confirm Password" required>
                     <label for="password2">Confirm Password</label>
                     <div class="invalid-feedback">
-                        {% for error in form.password2.errors %}
-                            {{ error }}
-                        {% endfor %}
+                        Please confirm your password.
+                    </div>
+                </div>
+
+                <div class="form-check mb-3">
+                    <input type="checkbox" class="form-check-input" id="terms" required>
+                    <label class="form-check-label small" for="terms">
+                        I agree to the <a href="#" class="text-decoration-none">Terms of Service</a> and <a href="#" class="text-decoration-none">Privacy Policy</a>
+                    </label>
+                    <div class="invalid-feedback">
+                        You must agree to the terms and conditions.
                     </div>
                 </div>
                 
@@ -209,8 +183,6 @@
     .form-floating > .form-control:focus {
         border-color: var(--primary-color);
         box-shadow: 0 0 0 0.2rem rgba(124, 58, 237, 0.25);
-        background-clip: padding-box;
-        -webkit-background-clip: padding-box;
     }
     
     .form-floating > label {
@@ -253,52 +225,27 @@
         justify-content: center;
         padding: 0.7rem;
         border-radius: 0.5rem;
-        font-weight: 500;
-        transition: all 0.3s ease;
         border: 2px solid var(--border-color);
-        background: white;
-        color: var(--text-primary);
+        color: var(--text-color);
+        transition: all 0.3s ease;
     }
 
     .social-btn:hover {
-        transform: translateY(-2px);
-        color: var(--text-primary) !important;
-    }
-
-    .google-btn:hover {
-        background: #f8f9fa;
-        border-color: #dadce0;
-        box-shadow: 0 4px 6px rgba(60, 64, 67, 0.1);
-    }
-
-    .facebook-btn:hover {
-        background: #f5f6f7;
-        border-color: #1877f2;
-        box-shadow: 0 4px 6px rgba(24, 119, 242, 0.1);
+        background: var(--border-color);
+        color: var(--text-color);
     }
 
     .social-icon {
         width: 20px;
         height: 20px;
-        margin-right: 12px;
-        object-fit: contain;
-    }
-
-    .fab.fa-facebook-f.social-icon {
-        color: #1877f2;
-        font-size: 20px;
-        width: 20px;
-        height: 20px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        margin-right: 0.5rem;
     }
 
     .separator {
         display: flex;
         align-items: center;
         text-align: center;
-        color: var(--text-secondary);
+        color: var(--text-muted);
     }
 
     .separator::before,
@@ -309,41 +256,35 @@
     }
 
     .separator::before {
-        margin-right: 1rem;
+        margin-right: .5em;
     }
 
     .separator::after {
-        margin-left: 1rem;
+        margin-left: .5em;
     }
 
     .separator-text {
         padding: 0 0.5rem;
-        font-size: 0.9rem;
-        color: var(--text-secondary);
-    }
-
-    @media (max-width: 991.98px) {
-        .auth-form-container {
-            margin: 1rem auto;
-            padding: 1.5rem;
-        }
+        font-size: 0.875rem;
     }
 </style>
 
 <script>
-(function () {
-    'use strict'
-    var forms = document.querySelectorAll('.needs-validation')
-    Array.prototype.slice.call(forms).forEach(function (form) {
-        form.addEventListener('submit', function (event) {
-            if (!form.checkValidity()) {
-                event.preventDefault()
-                event.stopPropagation()
-            }
-            form.classList.add('was-validated')
-        }, false)
-    })
-})()
+    // Form validation
+    (function () {
+        'use strict'
+        var forms = document.querySelectorAll('.needs-validation')
+        Array.prototype.slice.call(forms)
+            .forEach(function (form) {
+                form.addEventListener('submit', function (event) {
+                    if (!form.checkValidity()) {
+                        event.preventDefault()
+                        event.stopPropagation()
+                    }
+                    form.classList.add('was-validated')
+                }, false)
+            })
+    })()
 </script>
 {% endblock %}
 {% endwith %} 

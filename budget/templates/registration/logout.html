@@ -1,0 +1,36 @@
+{% extends 'budget/base.html' %}
+
+{% block title %}Logged Out - Budget Tracker{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-gradient-primary">
+                    <h2 class="text-center text-white mb-0">Logged Out</h2>
+                </div>
+                <div class="card-body text-center p-5">
+                    <div class="mb-4">
+                        <div class="icon-circle savings mx-auto">
+                            <i class="fas fa-check"></i>
+                        </div>
+                        <div class="alert alert-success mt-3">
+                            You have been successfully logged out!
+                        </div>
+                    </div>
+                    <p class="mb-4">Thank you for using Budget Tracker. We hope to see you again soon!</p>
+                    <div class="d-grid gap-3">
+                        <a href="{% url 'login' %}" class="btn btn-primary">
+                            <i class="fas fa-sign-in-alt me-2"></i>Log In Again
+                        </a>
+                        <a href="{% url 'root' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-home me-2"></i>Return to Home
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
