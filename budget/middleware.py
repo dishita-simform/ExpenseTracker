@@ -4,6 +4,7 @@ from django.core.cache import cache
 from django.conf import settings
 import json
 from django.utils import timezone
+import ssl
 
 logger = logging.getLogger(__name__)
 
@@ -80,3 +81,17 @@ class RequestLoggingMiddleware:
         else:
             ip = request.META.get('REMOTE_ADDR')
         return ip
+
+class SSLCertificateMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+        # Create a default SSL context that doesn't verify certificates
+        self.ssl_context = ssl.create_default_context()
+        self.ssl_context.check_hostname = False
+        self.ssl_context.verify_mode = ssl.CERT_NONE
+        
+        # Monkey patch the ssl module to use our context
+        ssl._create_default_https_context = lambda: self.ssl_context
+
+    def __call__(self, request):
+        return self.get_response(request)

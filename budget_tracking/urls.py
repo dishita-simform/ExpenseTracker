@@ -29,13 +29,14 @@ import dj_rest_auth.social_serializers
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from budget.views import home, dashboard, register, custom_logout, custom_password_reset
+from budget.views import home, dashboard, register, custom_logout, custom_password_reset, CustomOAuth2CallbackView
+from budget.oauth import CustomGoogleOAuth2Adapter, CustomOAuth2Client
 
 # Add this class definition before urlpatterns
 class GoogleLogin(SocialLoginView):
-    adapter_class = GoogleOAuth2Adapter
+    adapter_class = CustomGoogleOAuth2Adapter
     callback_url = "http://127.0.0.1:8000/accounts/google/login/callback/"  # Adjust this URL based on your domain
-    client_class = OAuth2Client
+    client_class = CustomOAuth2Client
 
 urlpatterns = [
     # Root URL - redirect to home or dashboard
@@ -72,6 +73,7 @@ urlpatterns = [
     # Social Authentication
     path('api/auth/google/', SignupView.as_view(), name='google_signup'),
     path('api/auth/google/login/', GoogleLogin.as_view(), name='google_login'),
+    path('accounts/google/login/callback/', CustomOAuth2CallbackView.as_view(), name='google_callback'),
     path('accounts/', include('allauth.urls')),
     path('accounts/social/', include('allauth.socialaccount.urls')),
 ]

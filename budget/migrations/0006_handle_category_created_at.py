@@ -9,7 +9,7 @@ def set_default_created_at(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ('budget', 'previous_migration'),  # Replace with your actual previous migration
+        ('budget', '0005_add_default_categories'),
     ]
 
     operations = [

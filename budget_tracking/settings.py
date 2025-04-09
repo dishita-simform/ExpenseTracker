@@ -71,6 +71,9 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'allauth.account.middleware.AccountMiddleware',
     'budget.middleware.RequestLoggingMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
+    'budget.middleware.LogRequestMiddleware',
+    'budget.middleware.SSLCertificateMiddleware',
 ]
 
 ROOT_URLCONF = 'budget_tracking.urls'
@@ -225,12 +228,18 @@ EMAIL_HOST_USER = 'dishita.expensetracker2025@gmail.com'
 EMAIL_HOST_PASSWORD = 'tpwq ccaq rrwj kwxj'  # Your 16-character app password
 DEFAULT_FROM_EMAIL = 'Budget Tracker <dishita.expensetracker2025@gmail.com>'
 
+# SSL Settings for Email
+EMAIL_USE_SSL = False
+EMAIL_SSL_CERTFILE = None
+EMAIL_SSL_KEYFILE = None
+EMAIL_SSL_CERT_REQS = 'CERT_NONE'  # This will disable certificate verification
+
 # Site ID
 SITE_ID = 1
 
 # Authentication Settings
-LOGIN_REDIRECT_URL = 'dashboard'
-LOGOUT_REDIRECT_URL = 'login'
+LOGIN_REDIRECT_URL = '/dashboard/'
+LOGOUT_REDIRECT_URL = '/accounts/login/'
 LOGIN_URL = '/accounts/login/'
 
 AUTHENTICATION_BACKENDS = [
@@ -251,7 +260,7 @@ ACCOUNT_LOGOUT_ON_PASSWORD_CHANGE = True
 ACCOUNT_SESSION_REMEMBER = True
 ACCOUNT_SIGNUP_FORM_CLASS = None
 ACCOUNT_USER_DISPLAY = lambda user: user.get_full_name() or user.username
-ACCOUNT_ADAPTER = 'allauth.account.adapter.DefaultAccountAdapter'
+ACCOUNT_ADAPTER = 'budget.adapters.CustomAccountAdapter'
 ACCOUNT_FORMS = {
     'login': 'allauth.account.forms.LoginForm',
     'signup': 'allauth.account.forms.SignupForm',
@@ -275,9 +284,18 @@ SOCIALACCOUNT_PROVIDERS = {
         ],
         'AUTH_PARAMS': {
             'access_type': 'online',
-        }
+        },
+        'OAUTH_PKCE_ENABLED': True,
     }
 }
+
+# Additional Social Auth Settings
+SOCIALACCOUNT_EMAIL_VERIFICATION = 'none'
+SOCIALACCOUNT_EMAIL_REQUIRED = True
+SOCIALACCOUNT_QUERY_EMAIL = True
+SOCIALACCOUNT_AUTO_SIGNUP = True
+SOCIALACCOUNT_LOGIN_ON_GET = True
+SOCIALACCOUNT_ADAPTER = 'budget.adapters.CustomSocialAccountAdapter'
 
 # dj-rest-auth Settings
 REST_AUTH = {
@@ -302,8 +320,6 @@ CORS_ALLOWED_ORIGINS = [
 ]
 CORS_ALLOW_CREDENTIALS = True
 
-MIDDLEWARE.append('budget.middleware.LogRequestMiddleware')
-
 # django-allauth settings
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
@@ -325,3 +341,7 @@ EMAIL_HOST_PASSWORD = 'tpwq ccaq rrwj kwxj'  # Your 16-character app password
 ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'http'
 SOCIALACCOUNT_LOGIN_ON_GET = True
 SOCIALACCOUNT_AUTO_SIGNUP = True
+LOGIN_REDIRECT_URL = '/dashboard/'
+ACCOUNT_LOGOUT_REDIRECT_URL = '/accounts/login/'
+ACCOUNT_AUTHENTICATED_LOGIN_REDIRECTS = True
+SOCIALACCOUNT_ADAPTER = 'budget.adapters.CustomSocialAccountAdapter'

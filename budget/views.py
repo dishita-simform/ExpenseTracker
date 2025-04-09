@@ -27,10 +27,86 @@ from rest_framework.permissions import AllowAny
 from django.db import connection
 from django.contrib.auth.forms import UserCreationForm, PasswordResetForm
 from django.urls import reverse_lazy
-from django.views.generic import CreateView
+from django.views.generic import CreateView, View
 from django.core.mail import send_mail
+from allauth.socialaccount.providers.oauth2.views import OAuth2CallbackView
+from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
+from allauth.socialaccount.providers.oauth2.client import OAuth2Client
+from budget.oauth import CustomGoogleOAuth2Adapter, CustomOAuth2Client
+import ssl
+import urllib3
+from allauth.socialaccount.models import SocialApp
+from allauth.socialaccount.providers.google.provider import GoogleProvider
 
 User = get_user_model()
+
+# Disable SSL verification warnings
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# Create a custom SSL context that doesn't verify certificates
+ssl_context = ssl.create_default_context()
+ssl_context.check_hostname = False
+ssl_context.verify_mode = ssl.CERT_NONE
+
+# Monkey patch the ssl module to use our context
+ssl._create_default_https_context = lambda: ssl_context
+
+class CustomOAuth2CallbackView(OAuth2CallbackView):
+    """
+    Custom OAuth2 callback view that uses our custom client with SSL verification disabled
+    """
+    adapter_class = CustomGoogleOAuth2Adapter
+
+    def get_client(self, request, app):
+        client = CustomOAuth2Client(
+            request,
+            app.client_id,
+            app.secret,
+            self.adapter.access_token_url,
+            self.adapter.callback_url,
+            self.adapter.scope,
+        )
+        return client
+
+    def get(self, request, *args, **kwargs):
+        if not request.GET.get('code'):
+            return render(request, 'registration/login.html', {'error': 'No code provided'})
+        
+        try:
+            app = SocialApp.objects.get(provider=GoogleProvider.id)
+        except SocialApp.DoesNotExist:
+            return render(request, 'registration/login.html', {'error': 'Google OAuth app not configured'})
+        
+        self.adapter = self.adapter_class(request)
+        client = self.get_client(request, app)
+        
+        try:
+            access_token = client.get_access_token(request.GET['code'])
+            token = self.adapter.parse_token(access_token)
+            login = self.adapter.complete_login(request, app, token, response=None)
+            login.token = token
+            
+            # Complete the social login process
+            ret = self.complete_social_login(request, login)
+            
+            # If the user is authenticated, redirect to the dashboard
+            if request.user.is_authenticated:
+                return redirect('dashboard')
+            
+            return ret
+        except Exception as e:
+            print(f"OAuth Error: {str(e)}")  # Add logging
+            return render(request, 'registration/login.html', {'error': str(e)})
+            
+    def complete_social_login(self, request, login):
+        """
+        Complete the social login process
+        """
+        login.user = login.account.user
+        login.user.backend = 'django.contrib.auth.backends.ModelBackend'
+        from django.contrib.auth import login as auth_login
+        auth_login(request, login.user)
+        return redirect('dashboard')
 
 class CategoryViewSet(viewsets.ModelViewSet):
     serializer_class = CategorySerializer
@@ -1259,7 +1335,7 @@ def custom_password_reset(request):
             try:
                 form.save(
                     request=request,
-                    from_email='dishita.expensetracker2025@gmail.com',
+                    from_email=DEFAULT_FROM_EMAIL,
                     email_template_name='registration/password_reset_email.html',
                     subject_template_name='registration/password_reset_subject.txt',
                     html_email_template_name='registration/password_reset_email.html'
@@ -1270,8 +1346,10 @@ def custom_password_reset(request):
                 print(f"Email error: {str(e)}")  # For debugging
                 messages.error(request, "Error sending email. Please try again.")
         else:
-            messages.error(request, "Invalid email address. Please provide a registered email.")
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"{field}: {error}")
     else:
         form = CustomPasswordResetForm()
     
-    return render(request, 'registration/password_reset_form.html', {'form': form})
+    return render(request, 'registration/password_reset.html', {'form': form})

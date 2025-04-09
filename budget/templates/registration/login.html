@@ -1,4 +1,6 @@
 {% extends "budget/base.html" %}
+{% load static %}
+{% load socialaccount %}
 
 {% block title %}Login - Budget Tracker{% endblock %}
 
@@ -65,14 +67,10 @@
 
                 <div class="social-auth mb-3">
                     <div class="d-grid gap-2">
-                        <a href="{% url 'google_login' %}" class="btn btn-outline-light social-btn google-btn">
+                        <a href="{% provider_login_url 'google' %}" class="btn btn-outline-light social-btn google-btn">
                             <img src="https://www.google.com/favicon.ico" alt="Google" class="social-icon">
                             Continue with Google
                         </a>
-                        <button type="button" class="btn btn-outline-light social-btn facebook-btn">
-                            <i class="fab fa-facebook-f social-icon"></i>
-                            Continue with Facebook
-                        </button>
                     </div>
                 </div>
 
@@ -123,13 +121,6 @@
                         Register here
                     </a>
                 </p>
-            </div>
-
-            <div class="social-login mt-3">
-                <p class="text-center">Or login with:</p>
-                <a href="{% url 'google_login' %}" class="btn btn-google btn-block">
-                    <i class="fab fa-google"></i> Login with Google
-                </a>
             </div>
         </div>
     </div>
@@ -223,27 +214,11 @@
         box-shadow: 0 4px 6px rgba(60, 64, 67, 0.1);
     }
 
-    .facebook-btn:hover {
-        background: #f5f6f7;
-        border-color: #1877f2;
-        box-shadow: 0 4px 6px rgba(24, 119, 242, 0.1);
-    }
-
     .social-icon {
         width: 20px;
         height: 20px;
         margin-right: 12px;
         object-fit: contain;
-    }
-
-    .fab.fa-facebook-f.social-icon {
-        color: #1877f2;
-        font-size: 20px;
-        width: 20px;
-        height: 20px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
     }
 
     .separator {
