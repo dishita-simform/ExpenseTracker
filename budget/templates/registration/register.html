@@ -70,19 +70,6 @@
                     </div>
                 {% endif %}
 
-                <div class="social-auth mb-3">
-                    <div class="d-grid gap-2">
-                        <a href="{% provider_login_url 'google' %}" class="btn btn-outline-light social-btn google-btn">
-                            <img src="https://www.google.com/favicon.ico" alt="Google" class="social-icon">
-                            Continue with Google
-                        </a>
-                    </div>
-                </div>
-
-                <div class="separator mb-3">
-                    <span class="separator-text">or register with email</span>
-                </div>
-
                 <div class="form-floating mb-3">
                     <input type="text" name="username" class="form-control" id="username" placeholder="Username" required>
                     <label for="username">Username</label>
@@ -215,77 +202,6 @@
     .auth-features {
         max-width: 360px;
         margin: 0 auto;
-    }
-
-    .social-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0.7rem;
-        border-radius: 0.5rem;
-        font-weight: 500;
-        transition: all 0.3s ease;
-        border: 2px solid var(--border-color);
-        background: white;
-        color: var(--text-primary);
-    }
-
-    .social-btn:hover {
-        transform: translateY(-2px);
-        color: var(--text-primary) !important;
-    }
-
-    .google-btn:hover {
-        background: #f8f9fa;
-        border-color: #dadce0;
-        box-shadow: 0 4px 6px rgba(60, 64, 67, 0.1);
-    }
-
-    .social-icon {
-        width: 20px;
-        height: 20px;
-        margin-right: 12px;
-        object-fit: contain;
-    }
-
-    .separator {
-        display: flex;
-        align-items: center;
-        text-align: center;
-        color: var(--text-secondary);
-    }
-
-    .separator::before,
-    .separator::after {
-        content: '';
-        flex: 1;
-        border-bottom: 2px solid var(--border-color);
-    }
-
-    .separator::before {
-        margin-right: 1rem;
-    }
-
-    .separator::after {
-        margin-left: 1rem;
-    }
-
-    .separator-text {
-        padding: 0 0.5rem;
-        font-size: 0.9rem;
-        color: var(--text-secondary);
-    }
-
-    .form-check-input:checked {
-        background-color: var(--primary-color);
-        border-color: var(--primary-color);
-    }
-
-    @media (max-width: 991.98px) {
-        .auth-form-container {
-            margin: 1rem auto;
-            padding: 1.5rem;
-        }
     }
 </style>
 

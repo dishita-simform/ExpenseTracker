@@ -20,23 +20,9 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from dj_rest_auth.registration.views import VerifyEmailView, ResendEmailVerificationView, SocialLoginView
+from dj_rest_auth.registration.views import VerifyEmailView, ResendEmailVerificationView
 from dj_rest_auth.views import LoginView, LogoutView, PasswordResetView, PasswordResetConfirmView
-from allauth.socialaccount.views import SignupView
-from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
-from allauth.socialaccount.providers.oauth2.client import OAuth2Client
-import dj_rest_auth.social_serializers
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from budget.views import home, dashboard, register, custom_logout, custom_password_reset, CustomOAuth2CallbackView
-from budget.oauth import CustomGoogleOAuth2Adapter, CustomOAuth2Client
-
-# Add this class definition before urlpatterns
-class GoogleLogin(SocialLoginView):
-    adapter_class = CustomGoogleOAuth2Adapter
-    callback_url = "http://127.0.0.1:8000/accounts/google/login/callback/"  # Adjust this URL based on your domain
-    client_class = CustomOAuth2Client
+from budget.views import home, dashboard, register, custom_logout, custom_password_reset
 
 urlpatterns = [
     # Root URL - redirect to home or dashboard
@@ -69,13 +55,6 @@ urlpatterns = [
     path('api/auth/resend-email/', ResendEmailVerificationView.as_view(), name='rest_resend_email'),
     path('api/auth/password/reset/', PasswordResetView.as_view(), name='rest_password_reset'),
     path('api/auth/password/reset/confirm/<uidb64>/<token>/', PasswordResetConfirmView.as_view(), name='rest_password_reset_confirm'),
-    
-    # Social Authentication
-    path('api/auth/google/', SignupView.as_view(), name='google_signup'),
-    path('api/auth/google/login/', GoogleLogin.as_view(), name='google_login'),
-    path('accounts/google/login/callback/', CustomOAuth2CallbackView.as_view(), name='google_callback'),
-    path('accounts/', include('allauth.urls')),
-    path('accounts/social/', include('allauth.socialaccount.urls')),
 ]
 
 if settings.DEBUG:

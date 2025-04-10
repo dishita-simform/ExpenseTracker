@@ -64,6 +64,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -71,7 +72,6 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'allauth.account.middleware.AccountMiddleware',
     'budget.middleware.RequestLoggingMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
     'budget.middleware.LogRequestMiddleware',
     'budget.middleware.SSLCertificateMiddleware',
 ]
@@ -149,8 +149,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# Static files (CSS, JavaScript, Images)
 STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
@@ -277,15 +277,7 @@ SOCIALACCOUNT_PROVIDERS = {
             'client_id': '678580298455-3cr9lo2qi5jsmj3t558uogd47g11csnp.apps.googleusercontent.com',
             'secret': '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',
             'key': ''
-        },
-        'SCOPE': [
-            'profile',
-            'email',
-        ],
-        'AUTH_PARAMS': {
-            'access_type': 'online',
-        },
-        'OAUTH_PKCE_ENABLED': True,
+        }
     }
 }
 
@@ -295,7 +287,6 @@ SOCIALACCOUNT_EMAIL_REQUIRED = True
 SOCIALACCOUNT_QUERY_EMAIL = True
 SOCIALACCOUNT_AUTO_SIGNUP = True
 SOCIALACCOUNT_LOGIN_ON_GET = True
-SOCIALACCOUNT_ADAPTER = 'budget.adapters.CustomSocialAccountAdapter'
 
 # dj-rest-auth Settings
 REST_AUTH = {
@@ -319,23 +310,6 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:8000",
 ]
 CORS_ALLOW_CREDENTIALS = True
-
-# django-allauth settings
-AUTHENTICATION_BACKENDS = [
-    'django.contrib.auth.backends.ModelBackend',
-    'allauth.account.auth_backends.AuthenticationBackend',
-]
-
-ACCOUNT_LOGIN_METHODS = {'email'}
-ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*', 'password1*', 'password2*']
-
-# Email settings
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'dishita.expensetracker2025@gmail.com'
-EMAIL_HOST_PASSWORD = 'tpwq ccaq rrwj kwxj'  # Your 16-character app password
 
 # Update these settings
 ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'http'

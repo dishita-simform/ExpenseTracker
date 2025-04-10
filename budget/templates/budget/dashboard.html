@@ -68,11 +68,11 @@
 <div class="container-fluid py-4">
     <!-- Welcome Section -->
     <div class="row mb-2">
-        <div class="col-12">
+        <div class="col-12 d-flex justify-content-between align-items-center">
             <h1 class="display-4 fw-bold mb-2" style="background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
                 Welcome Back, {{ request.user.first_name }}!
             </h1>
-            <p class="text-muted">Here's your financial overview</p>
+            <div id="dateTime" class="text-muted"></div>
         </div>
     </div>
 
@@ -192,38 +192,10 @@
                             <div class="chart-container mb-4">
                                 <canvas id="budgetPieChart"></canvas>
                             </div>
-                            
-                        <div class="col-md-6">
-                            <!-- Budget Categories List -->
-                            {% for category in budget_categories %}
-                            <div class="budget-item mb-4">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <div class="d-flex align-items-center">
-                                        <div class="category-icon me-2 bg-gradient-{{ category.color }}">
-                                            <i class="fas fa-{{ category.icon }}"></i>
-                                        </div>
-                                        <span>{{ category.name }}</span>
-                                    </div>
-                                    <div class="text-end">
-                                        <span class="fw-bold">₹{{ category.spent }}</span>
-                                        <small class="text-muted">/ ₹{{ category.budget }}</small>
-                                    </div>
-                                </div>
-                                <div class="progress">
-                                    {% with percentage=category.percentage|default:0 %}
-                                    <div class="progress-bar bg-gradient-{{ category.color }}" 
-                                         role="progressbar" 
-                                         data-width="{{ percentage }}"
-                                         style="width: {{ percentage }}%"
-                                         aria-valuenow="{{ percentage }}" 
-                                         aria-valuemin="0" 
-                                         aria-valuemax="100">
-                                    </div>
-                                    {% endwith %}
-                                </div>
-                            </div>
-                            {% empty %}
-                            {% endfor %}
+                        </div>
+                        <div class="col-md-6 d-flex flex-column justify-content-center align-items-center">
+                            <!-- Date and Time Display -->
+                            <div id="dateTime" class="text-muted mb-4"></div>
                         </div>
                     </div>
                 </div>
@@ -631,6 +603,16 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('month').addEventListener('change', updateDashboardData);
         document.getElementById('year').addEventListener('change', updateDashboardData);
     });
+
+    function updateDateTime() {
+        const now = new Date();
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
+        document.getElementById('dateTime').textContent = now.toLocaleDateString('en-US', options);
+    }
+
+    // Update date and time every second
+    setInterval(updateDateTime, 1000);
+    updateDateTime(); // Initial call to set the date and time immediately
 });
 </script>
 {% endblock %} 
