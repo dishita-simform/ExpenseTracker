@@ -26,9 +26,25 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from django.db import connection
 from django.contrib.auth.forms import UserCreationForm, PasswordResetForm
-from django.urls import reverse_lazy
+from django.urls import reverse_lazy, reverse
 from django.views.generic import CreateView, View
 from django.core.mail import send_mail
+import csv
+from django.http import HttpResponse
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment
+from openpyxl.utils import get_column_letter
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from io import BytesIO
+from django.conf import settings
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode
+from django.utils.encoding import force_bytes
+from .email_utils import send_email_direct
 
 User = get_user_model()
 
@@ -1257,18 +1273,67 @@ def custom_password_reset(request):
         if form.is_valid():
             email = form.cleaned_data['email']
             try:
-                form.save(
-                    request=request,
-                    from_email=DEFAULT_FROM_EMAIL,
-                    email_template_name='registration/password_reset_email.html',
-                    subject_template_name='registration/password_reset_subject.txt',
-                    html_email_template_name='registration/password_reset_email.html'
+                # Get the user
+                user = User.objects.get(email=email)
+                
+                # Generate password reset token
+                token = default_token_generator.make_token(user)
+                uid = urlsafe_base64_encode(force_bytes(user.pk))
+                
+                # Create the reset URL
+                reset_url = request.build_absolute_uri(
+                    reverse('password_reset_confirm', kwargs={'uidb64': uid, 'token': token})
                 )
-                messages.success(request, f"Password reset link has been sent to {email}")
-                return redirect('password_reset_done')
+                
+                # Send email directly
+                subject = "Password Reset for Budget Tracker"
+                message = f"""
+                Hello {user.get_full_name() or user.username},
+                
+                You requested a password reset for your Budget Tracker account.
+                
+                Please click the link below to reset your password:
+                {reset_url}
+                
+                If you didn't request this, you can safely ignore this email.
+                
+                This link will expire in 24 hours.
+                
+                Best regards,
+                Budget Tracker Team
+                """
+                
+                # Print debug information
+                print(f"Sending password reset email to: {email}")
+                print(f"From email: {settings.DEFAULT_FROM_EMAIL}")
+                print(f"Reset URL: {reset_url}")
+                
+                # Try using our direct email function first
+                success, message = send_email_direct(subject, message, [email])
+                
+                if success:
+                    messages.success(request, f"Password reset link has been sent to {email}")
+                    return redirect('password_reset_done')
+                else:
+                    # Fall back to Django's send_mail if our direct method fails
+                    try:
+                        send_mail(
+                            subject,
+                            message,
+                            settings.DEFAULT_FROM_EMAIL,
+                            [email],
+                            fail_silently=False,
+                        )
+                        messages.success(request, f"Password reset link has been sent to {email}")
+                        return redirect('password_reset_done')
+                    except Exception as e:
+                        print(f"Email sending error: {str(e)}")
+                        messages.error(request, f"Error sending email: {str(e)}")
+            except User.DoesNotExist:
+                messages.error(request, "There is no user registered with this email address.")
             except Exception as e:
-                print(f"Email error: {str(e)}")  # For debugging
-                messages.error(request, "Error sending email. Please try again.")
+                print(f"General error: {str(e)}")
+                messages.error(request, f"Error: {str(e)}")
         else:
             for field, errors in form.errors.items():
                 for error in errors:
@@ -1277,3 +1342,220 @@ def custom_password_reset(request):
         form = CustomPasswordResetForm()
     
     return render(request, 'registration/password_reset.html', {'form': form})
+
+@login_required
+def export_report(request):
+    """
+    Export budget report for the selected month and year as a PDF file.
+    """
+    # Get month and year from request
+    month = request.GET.get('month', datetime.now().month)
+    year = request.GET.get('year', datetime.now().year)
+    
+    # Convert to integers
+    month = int(month)
+    year = int(year)
+    
+    # Get month name
+    month_name = datetime(year, month, 1).strftime('%B')
+    
+    # Get budget data for the selected month and year
+    expenses = Expense.objects.filter(
+        user=request.user,
+        date__year=year,
+        date__month=month
+    ).order_by('date')
+    
+    income = Income.objects.filter(
+        user=request.user,
+        date__year=year,
+        date__month=month
+    ).order_by('date')
+    
+    # Calculate totals
+    total_income = sum(inc.amount for inc in income)
+    total_expenses = sum(exp.amount for exp in expenses)
+    total_savings = total_income - total_expenses
+    
+    # Create the PDF
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter)
+    styles = getSampleStyleSheet()
+    elements = []
+    
+    # Custom styles
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=24,
+        spaceAfter=30,
+        alignment=1,  # Center alignment
+        textColor=colors.HexColor('#2C3E50')  # Dark blue color
+    )
+    
+    heading_style = ParagraphStyle(
+        'CustomHeading',
+        parent=styles['Heading2'],
+        fontSize=16,
+        spaceAfter=15,
+        textColor=colors.HexColor('#34495E')  # Darker blue color
+    )
+    
+    # Header with user information
+    header_style = ParagraphStyle(
+        'Header',
+        parent=styles['Normal'],
+        fontSize=12,
+        textColor=colors.HexColor('#7F8C8D'),  # Gray color
+        alignment=2  # Right alignment
+    )
+    elements.append(Paragraph(f"Generated for: {request.user.get_full_name() or request.user.username}", header_style))
+    elements.append(Paragraph(f"Date: {datetime.now().strftime('%d %B %Y')}", header_style))
+    elements.append(Spacer(1, 20))
+    
+    # Title
+    elements.append(Paragraph(f"Budget Report - {month_name} {year}", title_style))
+    
+    # Summary Section
+    elements.append(Paragraph("Summary", heading_style))
+    summary_data = [
+        ["Total Income", f"Rs. {total_income:,.2f}"],
+        ["Total Expenses", f"Rs. {total_expenses:,.2f}"],
+        ["Net Savings", f"Rs. {total_savings:,.2f}"]
+    ]
+    summary_table = Table(summary_data, colWidths=[2*inch, 2*inch])
+    summary_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#27AE60')),  # Green
+        ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor('#E74C3C')),  # Red
+        ('BACKGROUND', (0, 2), (-1, 2), colors.HexColor('#3498DB')),  # Blue
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#BDC3C7'))  # Light gray grid
+    ]))
+    elements.append(summary_table)
+    elements.append(Spacer(1, 20))
+    
+    # Income Section
+    elements.append(Paragraph("Income Details", heading_style))
+    if income:
+        income_data = [["Source", "Amount", "Date"]]  # Header row
+        for inc in income:
+            income_data.append([
+                inc.source.name,
+                f"Rs. {inc.amount:,.2f}",
+                inc.date.strftime('%d %b %Y')
+            ])
+        income_table = Table(income_data, colWidths=[2*inch, 2*inch, 2*inch])
+        income_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2C3E50')),  # Dark blue header
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.HexColor('#2C3E50')),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 10),
+            ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#BDC3C7')),
+            ('ALIGN', (1, 0), (1, -1), 'RIGHT'),  # Right align amounts
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F5F6FA')])  # Alternating row colors
+        ]))
+        elements.append(income_table)
+    else:
+        elements.append(Paragraph("No income recorded for this period.", styles['Normal']))
+    elements.append(Spacer(1, 20))
+    
+    # Expenses Section
+    elements.append(Paragraph("Expense Details", heading_style))
+    if expenses:
+        expense_data = [["Category", "Amount", "Description", "Date"]]  # Header row
+        for exp in expenses:
+            expense_data.append([
+                exp.category.name,
+                f"Rs. {exp.amount:,.2f}",
+                exp.description,
+                exp.date.strftime('%d %b %Y')
+            ])
+        expense_table = Table(expense_data, colWidths=[1.5*inch, 1.5*inch, 2.5*inch, 1.5*inch])
+        expense_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2C3E50')),  # Dark blue header
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.HexColor('#2C3E50')),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 10),
+            ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#BDC3C7')),
+            ('ALIGN', (1, 0), (1, -1), 'RIGHT'),  # Right align amounts
+            ('ALIGN', (2, 0), (2, -1), 'LEFT'),    # Left align descriptions
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F5F6FA')])  # Alternating row colors
+        ]))
+        elements.append(expense_table)
+    else:
+        elements.append(Paragraph("No expenses recorded for this period.", styles['Normal']))
+    
+    # Footer
+    elements.append(Spacer(1, 30))
+    footer_style = ParagraphStyle(
+        'Footer',
+        parent=styles['Normal'],
+        fontSize=8,
+        textColor=colors.HexColor('#95A5A6'),  # Light gray color
+        alignment=1  # Center alignment
+    )
+    elements.append(Paragraph("Generated by Budget Tracker", footer_style))
+    
+    # Build the PDF document
+    doc.build(elements)
+    
+    # FileResponse sets the Content-Disposition header so that browsers
+    # present the option to save the file.
+    buffer.seek(0)
+    response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename=budget_report_{year}_{month}.pdf'
+    
+    return response
+
+@login_required
+def test_email(request):
+    """
+    Test function to verify that emails can be sent.
+    """
+    try:
+        # Print debug information
+        print(f"Testing email to: {request.user.email}")
+        print(f"From email: {settings.DEFAULT_FROM_EMAIL}")
+        print(f"Email backend: {settings.EMAIL_BACKEND}")
+        print(f"Email host: {settings.EMAIL_HOST}")
+        print(f"Email port: {settings.EMAIL_PORT}")
+        print(f"Email use TLS: {settings.EMAIL_USE_TLS}")
+        
+        # Try using our direct email function first
+        subject = 'Test Email from Budget Tracker'
+        message = 'This is a test email to verify that email sending is working correctly.'
+        success, result_message = send_email_direct(subject, message, [request.user.email])
+        
+        if success:
+            messages.success(request, f"Test email sent to {request.user.email}")
+        else:
+            # Fall back to Django's send_mail if our direct method fails
+            send_mail(
+                subject,
+                message,
+                settings.DEFAULT_FROM_EMAIL,
+                [request.user.email],
+                fail_silently=False,
+            )
+            messages.success(request, f"Test email sent to {request.user.email}")
+    except Exception as e:
+        print(f"Error sending test email: {str(e)}")
+        messages.error(request, f"Error sending test email: {str(e)}")
+    
+    return redirect('dashboard')

@@ -15,6 +15,7 @@ import os
 from dotenv import load_dotenv
 from datetime import timedelta
 from celery.schedules import crontab
+import ssl
 
 # Load environment variables from .env file
 load_dotenv()
@@ -230,7 +231,10 @@ DEFAULT_FROM_EMAIL = 'Budget Tracker <dishita.expensetracker2025@gmail.com>'
 EMAIL_USE_SSL = False
 EMAIL_SSL_CERTFILE = None
 EMAIL_SSL_KEYFILE = None
-EMAIL_SSL_CERT_REQS = 'CERT_NONE'  # This will disable certificate verification
+EMAIL_SSL_CERT_REQS = ssl.CERT_NONE  # This will disable certificate verification
+
+# Add this to fix SSL certificate verification issues
+EMAIL_SSL_CERT_REQS = ssl.CERT_NONE
 
 # Site ID
 SITE_ID = 1

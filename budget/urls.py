@@ -79,4 +79,6 @@ urlpatterns = [
     path('api/budget-statistics/', budget_statistics, name='budget_statistics'),
     path('api/monthly-summary/', monthly_summary, name='monthly_summary'),
     path('api/expense-trends/', expense_trends, name='expense_trends'),
+    path('budget/export-report/', views.export_report, name='export_report'),
+    path('test-email/', views.test_email, name='test_email'),
 ]
