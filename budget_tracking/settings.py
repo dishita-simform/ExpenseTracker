@@ -224,7 +224,7 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'dishita.expensetracker2025@gmail.com'
-EMAIL_HOST_PASSWORD = 'tpwq ccaq rrwj kwxj'  # Your 16-character app password
+EMAIL_HOST_PASSWORD = 'wcnmxmlynqtyhxhp'  # Your 16-character app password
 DEFAULT_FROM_EMAIL = 'Budget Tracker <dishita.expensetracker2025@gmail.com>'
 
 # SSL Settings for Email
