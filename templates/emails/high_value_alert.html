@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #e24a4a;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 5px;
+        }
+        .content {
+            background-color: #f9f9f9;
+            padding: 20px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        .alert-box {
+            background-color: #fff3f3;
+            border: 1px solid #ffcdd2;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .transaction-list {
+            list-style: none;
+            padding: 0;
+        }
+        .transaction-item {
+            background-color: white;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 3px;
+            border: 1px solid #eee;
+        }
+        .amount {
+            color: #e24a4a;
+            font-weight: bold;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>High Value Transaction Alert</h1>
+        <p>{{ date }}</p>
+    </div>
+    
+    <div class="content">
+        <p>Hello {{ user.get_full_name|default:user.username }},</p>
+        
+        <div class="alert-box">
+            <h3>⚠️ Alert: Daily Transactions Exceeded Limit</h3>
+            <p>Your daily transactions have exceeded ₹20,000.</p>
+            <p>Current total: <span class="amount">₹{{ daily_total|floatformat:2 }}</span></p>
+        </div>
+        
+        <h3>Recent Transactions:</h3>
+        <ul class="transaction-list">
+            {% for trans in transactions %}
+            <li class="transaction-item">
+                <strong>{{ trans.date|date:"H:i" }}</strong> | 
+                {{ trans.category.name|default:"Uncategorized" }} | 
+                <span class="amount">₹{{ trans.amount|floatformat:2 }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+        
+        <p>Please review these transactions to ensure they are correct.</p>
+        
+        <p>Best regards,<br>Budget Tracker Team</p>
+    </div>
+    
+    <div class="footer">
+        <p>This is an automated message. Please do not reply to this email.</p>
+        <p>&copy; {{ date|date:"Y" }} Budget Tracker. All rights reserved.</p>
+    </div>
+</body>
+</html> 

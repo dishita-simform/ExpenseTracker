@@ -28,6 +28,14 @@ app.conf.beat_schedule = {
         'task': 'budget.tasks.cleanup_old_data',
         'schedule': crontab(hour=0, minute=0, day_of_week='sunday'),  # Weekly cleanup
     },
+    'send-monthly-report': {
+        'task': 'budget_tracking.tasks.send_monthly_report_task',
+        'schedule': crontab(0, 0, day_of_month='1'),  # First day of each month at midnight
+    },
+    'check-high-value-transactions': {
+        'task': 'budget_tracking.tasks.check_high_value_transactions_task',
+        'schedule': crontab(minute='*/30'),  # Every 30 minutes
+    },
 }
 
 @app.task(bind=True, ignore_result=True)

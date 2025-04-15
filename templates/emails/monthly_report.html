@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #4a90e2;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 5px;
+        }
+        .content {
+            background-color: #f9f9f9;
+            padding: 20px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            color: #666;
+        }
+        .button {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #4a90e2;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Monthly Expense Report</h1>
+        <p>{{ month }}</p>
+    </div>
+    
+    <div class="content">
+        <p>Hello {{ user.get_full_name|default:user.username }},</p>
+        
+        <p>Please find attached your monthly expense report for {{ month }}.</p>
+        
+        <h3>This report includes:</h3>
+        <ul>
+            <li>Summary of your monthly expenses</li>
+            <li>Category-wise breakdown</li>
+            <li>Recent transactions</li>
+            <li>Total spending analysis</li>
+        </ul>
+        
+        <p>If you have any questions about your expenses, please don't hesitate to contact us.</p>
+        
+        <p>Best regards,<br>Budget Tracker Team</p>
+    </div>
+    
+    <div class="footer">
+        <p>This is an automated message. Please do not reply to this email.</p>
+        <p>&copy; {{ month|date:"Y" }} Budget Tracker. All rights reserved.</p>
+    </div>
+</body>
+</html> 
