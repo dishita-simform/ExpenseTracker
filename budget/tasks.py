@@ -8,6 +8,10 @@ from django.core.cache import cache
 from datetime import timedelta
 from django.core.mail import send_mail
 from django.conf import settings
+from django.contrib.auth import get_user_model
+from .email_utils import send_email_direct
+
+User = get_user_model()
 
 @shared_task
 def reset_monthly_budgets():
@@ -174,3 +178,133 @@ def cleanup_old_data():
     
     # Clean up old budget records
     Budget.objects.filter(created_at__lt=cutoff_date).delete()
+
+@shared_task
+def send_monthly_report():
+    """
+    Task to send monthly expense report at the end of each month.
+    This task should be scheduled to run on the last day of each month.
+    """
+    # Get all users
+    users = User.objects.all()
+    
+    # Get current month and year
+    today = timezone.now()
+    first_day = today.replace(day=1)
+    last_day = (first_day + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+    
+    for user in users:
+        try:
+            # Calculate monthly totals
+            monthly_expenses = Expense.objects.filter(
+                user=user,
+                date__year=today.year,
+                date__month=today.month
+            )
+            monthly_income = Income.objects.filter(
+                user=user,
+                date__year=today.year,
+                date__month=today.month
+            )
+            
+            total_expenses = monthly_expenses.aggregate(total=Sum('amount'))['total'] or 0
+            total_income = monthly_income.aggregate(total=Sum('amount'))['total'] or 0
+            net_savings = total_income - total_expenses
+            
+            # Group expenses by category
+            category_expenses = {}
+            for expense in monthly_expenses:
+                category = expense.category.name
+                if category not in category_expenses:
+                    category_expenses[category] = 0
+                category_expenses[category] += expense.amount
+            
+            # Create email content
+            subject = f"Your Monthly Budget Report - {today.strftime('%B %Y')}"
+            message = f"""
+            Hello {user.get_full_name() or user.username},
+
+            Here's your monthly budget report for {today.strftime('%B %Y')}:
+
+            Summary:
+            --------
+            Total Income: Rs. {total_income:,.2f}
+            Total Expenses: Rs. {total_expenses:,.2f}
+            Net Savings: Rs. {net_savings:,.2f}
+
+            Expenses by Category:
+            -------------------
+            """
+            
+            for category, amount in category_expenses.items():
+                message += f"{category}: Rs. {amount:,.2f}\n"
+            
+            message += f"""
+            
+            You can view more details in your Budget Tracker dashboard.
+
+            Best regards,
+            Budget Tracker Team
+            """
+            
+            # Send email
+            send_email_direct(subject, message, [user.email])
+            
+        except Exception as e:
+            print(f"Error sending monthly report to {user.email}: {str(e)}")
+
+@shared_task
+def check_daily_expenses():
+    """
+    Task to check if daily expenses exceed Rs. 20,000 and send alert email.
+    This task should be scheduled to run daily.
+    """
+    # Get all users
+    users = User.objects.all()
+    
+    # Get today's date
+    today = timezone.now().date()
+    
+    for user in users:
+        try:
+            # Calculate daily expenses
+            daily_expenses = Expense.objects.filter(
+                user=user,
+                date=today
+            )
+            
+            total_expenses = daily_expenses.aggregate(total=Sum('amount'))['total'] or 0
+            
+            # Check if expenses exceed Rs. 20,000
+            if total_expenses > 20000:
+                # Create email content
+                subject = "High Daily Expense Alert!"
+                message = f"""
+                Hello {user.get_full_name() or user.username},
+
+                This is to inform you that your total expenses for today ({today.strftime('%B %d, %Y')}) 
+                have exceeded Rs. 20,000.
+
+                Total Expenses Today: Rs. {total_expenses:,.2f}
+
+                Expense Breakdown:
+                -----------------
+                """
+                
+                # Add expense details
+                for expense in daily_expenses:
+                    message += f"{expense.category.name}: Rs. {expense.amount:,.2f} - {expense.description or 'No description'}\n"
+                
+                message += f"""
+                
+                Please review your expenses in your Budget Tracker dashboard.
+
+                Best regards,
+                Budget Tracker Team
+                """
+                
+                # Send alert email
+                send_email_direct(subject, message, [user.email])
+                
+        except Exception as e:
+            print(f"Error checking daily expenses for {user.email}: {str(e)}")

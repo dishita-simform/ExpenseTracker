@@ -211,6 +211,59 @@
             </div>
         </div>
     </div>
+
+    <!-- Transaction List -->
+    <div class="card mt-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h4 class="mb-0">Recent Transactions</h4>
+        </div>
+        <div class="card-body">
+            <div class="list-group">
+                {% for transaction in recent_transactions %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center">
+                                <div class="icon-circle {{ transaction.type }}" style="width: 40px; height: 40px; margin-right: 1rem;">
+                                    <i class="fas fa-{{ transaction.category.icon }}"></i>
+                                </div>
+                                <div>
+                                    <h6 class="mb-0">{{ transaction.category.name }}</h6>
+                                    <small class="text-muted">{{ transaction.description }}</small>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <span class="h6 mb-0 me-3 {% if transaction.amount < 0 %}text-danger{% else %}text-success{% endif %}">
+                                    Rs. {{ transaction.amount|floatformat:2 }}
+                                </span>
+                                <div class="btn-group">
+                                    {% if transaction.type == 'expense' %}
+                                        <a href="{% url 'edit_expense' transaction.id %}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <a href="{% url 'delete_expense' transaction.id %}" class="btn btn-sm btn-outline-danger">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                    {% else %}
+                                        <a href="{% url 'edit_income' transaction.id %}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <a href="{% url 'delete_income' transaction.id %}" class="btn btn-sm btn-outline-danger">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% empty %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-receipt fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">No transactions found for this period.</p>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Add Transaction Modal -->

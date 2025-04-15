@@ -60,6 +60,7 @@
                                 <tr>
                                     <th class="ps-4">Date</th>
                                     <th>Source</th>
+                                    <th>Description</th>
                                     <th class="text-end">Amount</th>
                                     <th class="text-end pe-4">Actions</th>
                                 </tr>
@@ -76,14 +77,17 @@
                                             {{ income.source.name }}
                                         </div>
                                     </td>
-                                    <td class="text-end text-success">₹{{ income.amount }}</td>
+                                    <td>{{ income.description }}</td>
+                                    <td class="text-end text-success">₹{{ income.amount|floatformat:2 }}</td>
                                     <td class="text-end pe-4">
-                                        <button class="btn btn-sm btn-primary me-2" onclick="editIncome('{{ income.id }}')">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-danger" onclick="deleteIncome('{{ income.id }}')">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
+                                        <div class="btn-group">
+                                            <a href="{% url 'edit_income' income.id %}" class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <a href="{% url 'delete_income' income.id %}" class="btn btn-sm btn-outline-danger">
+                                                <i class="fas fa-trash"></i>
+                                            </a>
+                                        </div>
                                     </td>
                                 </tr>
                                 {% empty %}
@@ -214,14 +218,17 @@ document.addEventListener('DOMContentLoaded', function() {
                             ${data.transaction.category.name}
                         </div>
                     </td>
-                    <td class="text-end text-success">₹${data.transaction.amount}</td>
+                    <td>${data.transaction.description}</td>
+                    <td class="text-end text-success">₹${data.transaction.amount|floatformat:2}</td>
                     <td class="text-end pe-4">
-                        <button class="btn btn-sm btn-primary me-2" onclick="editIncome('${data.transaction.id}')">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteIncome('${data.transaction.id}')">
-                            <i class="fas fa-trash"></i>
-                        </button>
+                        <div class="btn-group">
+                            <a href="${data.transaction.id}/edit/" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <a href="${data.transaction.id}/delete/" class="btn btn-sm btn-outline-danger">
+                                <i class="fas fa-trash"></i>
+                            </a>
+                        </div>
                     </td>
                 `;
                 

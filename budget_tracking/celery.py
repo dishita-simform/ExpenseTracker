@@ -14,27 +14,17 @@ app.config_from_object('django.conf:settings', namespace='CELERY')
 # Load task modules from all registered Django app configs.
 app.autodiscover_tasks()
 
-# Configure Celery Beat schedule
+# Configure periodic tasks
 app.conf.beat_schedule = {
-    'send-budget-alerts': {
-        'task': 'budget.tasks.send_budget_alerts',
-        'schedule': crontab(hour=9, minute=0),  # Daily at 9 AM
-    },
-    'generate-monthly-reports': {
-        'task': 'budget.tasks.generate_monthly_reports',
-        'schedule': crontab(0, 0, day_of_month='1'),  # First day of each month
-    },
-    'cleanup-old-data': {
-        'task': 'budget.tasks.cleanup_old_data',
-        'schedule': crontab(hour=0, minute=0, day_of_week='sunday'),  # Weekly cleanup
-    },
+    # Send monthly report on the last day of each month at 11:59 PM
     'send-monthly-report': {
-        'task': 'budget_tracking.tasks.send_monthly_report_task',
-        'schedule': crontab(0, 0, day_of_month='1'),  # First day of each month at midnight
+        'task': 'budget.tasks.send_monthly_report',
+        'schedule': crontab(hour=23, minute=59, day_of_month='28-31'),  # This will run on the last few days of each month
     },
-    'check-high-value-transactions': {
-        'task': 'budget_tracking.tasks.check_high_value_transactions_task',
-        'schedule': crontab(minute='*/30'),  # Every 30 minutes
+    # Check daily expenses every day at 9:00 PM
+    'check-daily-expenses': {
+        'task': 'budget.tasks.check_daily_expenses',
+        'schedule': crontab(hour=21, minute=0),
     },
 }
 

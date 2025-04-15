@@ -146,27 +146,63 @@ def add_expense(request):
 
 @login_required
 def edit_expense(request, expense_id):
+    """
+    View for editing an expense entry.
+    """
     expense = get_object_or_404(Expense, id=expense_id, user=request.user)
+    
     if request.method == 'POST':
-        form = ExpenseForm(request.POST, instance=expense, user=request.user)
-        if form.is_valid():
-            form.save()
+        category_id = request.POST.get('category')
+        amount = request.POST.get('amount')
+        description = request.POST.get('description', '')
+        date_str = request.POST.get('date')
+        
+        try:
+            # Parse the date string to a date object
+            date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            
+            # Check if the date is in the future
+            current_date = timezone.now().date()
+            if date > current_date:
+                raise ValueError('Expense date cannot be in the future.')
+            
+            # Get the category
+            category = Category.objects.get(id=category_id, user=request.user)
+            
+            # Update the expense record
+            expense.category = category
+            expense.amount = amount
+            expense.description = description
+            expense.date = date
+            expense.save()
+            
             messages.success(request, 'Expense updated successfully!')
             return redirect('expense_list')
-    else:
-        form = ExpenseForm(instance=expense, user=request.user)
+            
+        except Exception as e:
+            messages.error(request, f'Error updating expense: {str(e)}')
+            return redirect('expense_list')
     
-    # Get current date for the template
-    today = timezone.now().date()
-    return render(request, 'budget/expense_form.html', {'form': form, 'expense': expense, 'today': today})
+    # For GET request, render the edit form
+    categories = Category.objects.filter(user=request.user)
+    return render(request, 'budget/expense_form.html', {
+        'expense': expense,
+        'form': ExpenseForm(instance=expense, user=request.user),
+        'today': timezone.now().date()
+    })
 
 @login_required
 def delete_expense(request, expense_id):
+    """
+    View for deleting an expense entry.
+    """
     expense = get_object_or_404(Expense, id=expense_id, user=request.user)
+    
     if request.method == 'POST':
         expense.delete()
         messages.success(request, 'Expense deleted successfully!')
         return redirect('expense_list')
+    
     return render(request, 'budget/expense_confirm_delete.html', {'expense': expense})
 
 @login_required
@@ -1566,15 +1602,147 @@ def profile_view(request):
     View for displaying and updating user profile information.
     """
     if request.method == 'POST':
+        # Store old email for comparison
+        old_email = request.user.email
+        old_first_name = request.user.first_name
+        old_last_name = request.user.last_name
+
         # Handle profile update
         user = request.user
         user.first_name = request.POST.get('first_name', user.first_name)
         user.last_name = request.POST.get('last_name', user.last_name)
-        user.email = request.POST.get('email', user.email)
-        user.save()
-        messages.success(request, 'Profile updated successfully!')
+        new_email = request.POST.get('email', user.email)
+        
+        # Check if any changes were made
+        changes_made = []
+        if user.first_name != old_first_name:
+            changes_made.append(f"First Name: {old_first_name} → {user.first_name}")
+        if user.last_name != old_last_name:
+            changes_made.append(f"Last Name: {old_last_name} → {user.last_name}")
+        if new_email != old_email:
+            changes_made.append(f"Email: {old_email} → {new_email}")
+
+        if changes_made:
+            # If email is changed, send notification to both old and new email
+            if new_email != old_email:
+                # Send notification to old email
+                old_email_subject = "Your Budget Tracker Email Has Been Changed"
+                old_email_message = f"""
+                Hello {user.get_full_name() or user.username},
+
+                Your email address for Budget Tracker has been changed from {old_email} to {new_email}.
+
+                If you did not make this change, please contact us immediately.
+
+                Best regards,
+                Budget Tracker Team
+                """
+                send_email_direct(old_email_subject, old_email_message, [old_email])
+
+                # Send welcome message to new email
+                new_email_subject = "Welcome to Your Updated Budget Tracker Profile"
+                new_email_message = f"""
+                Hello {user.get_full_name() or user.username},
+
+                This email confirms that your email address has been successfully updated in your Budget Tracker profile.
+                You will now receive all Budget Tracker notifications at this email address.
+
+                Best regards,
+                Budget Tracker Team
+                """
+                send_email_direct(new_email_subject, new_email_message, [new_email])
+
+            else:
+                # Send general profile update notification
+                subject = "Your Budget Tracker Profile Has Been Updated"
+                message = f"""
+                Hello {user.get_full_name() or user.username},
+
+                Your Budget Tracker profile has been updated with the following changes:
+
+                {chr(10).join(changes_made)}
+
+                If you did not make these changes, please contact us immediately.
+
+                Best regards,
+                Budget Tracker Team
+                """
+                send_email_direct(subject, message, [user.email])
+
+            # Update the email last
+            user.email = new_email
+            user.save()
+            messages.success(request, 'Profile updated successfully!')
+        else:
+            messages.info(request, 'No changes were made to your profile.')
+        
         return redirect('profile')
 
     return render(request, 'budget/profile.html', {
         'user': request.user
     })
+
+@login_required
+def edit_income(request, income_id):
+    """
+    View for editing an income entry.
+    """
+    income = get_object_or_404(Income, id=income_id, user=request.user)
+    
+    if request.method == 'POST':
+        source_name = request.POST.get('source')
+        amount = request.POST.get('amount')
+        description = request.POST.get('description', '')
+        date_str = request.POST.get('date')
+        
+        try:
+            # Parse the date string to a date object
+            date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            
+            # Check if the date is in the future
+            current_date = timezone.now().date()
+            if date > current_date:
+                raise ValueError('Income date cannot be in the future.')
+            
+            # Get or create the income source
+            source, created = IncomeSource.objects.get_or_create(
+                user=request.user,
+                name=source_name,
+                defaults={'icon': 'money-bill-wave'}
+            )
+            
+            # Update the income record
+            income.source = source
+            income.amount = amount
+            income.description = description
+            income.date = date
+            income.save()
+            
+            messages.success(request, 'Income updated successfully!')
+            return redirect('income_list')
+            
+        except Exception as e:
+            messages.error(request, f'Error updating income: {str(e)}')
+            return redirect('income_list')
+    
+    # For GET request, render the edit form
+    sources = IncomeSource.objects.filter(user=request.user)
+    return render(request, 'budget/edit_income.html', {
+        'income': income,
+        'sources': sources,
+        'today': timezone.now().date()
+    })
+
+@login_required
+def delete_income(request, income_id):
+    """
+    View for deleting an income entry.
+    """
+    income = get_object_or_404(Income, id=income_id, user=request.user)
+    
+    if request.method == 'POST':
+        income.delete()
+        messages.success(request, 'Income deleted successfully!')
+        return redirect('income_list')
+    
+    return render(request, 'budget/delete_income.html', {'income': income})
