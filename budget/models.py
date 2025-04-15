@@ -112,9 +112,12 @@ class Expense(models.Model):
         return f"{self.description} - ${self.amount}"
 
     def clean(self):
+        super().clean()
         current_date = timezone.now().date()
         if self.date and self.date > current_date:
             raise ValidationError({'date': 'Expense date cannot be in the future.'})
+        if self.category and self.amount > self.category.remaining_budget:
+            raise ValidationError({'amount': 'This expense exceeds the remaining budget for this category.'})
 
     class Meta:
         ordering = ['-date', '-created_at']

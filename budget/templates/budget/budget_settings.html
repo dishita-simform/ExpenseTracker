@@ -187,5 +187,25 @@
             );
         }
     });
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const categories = JSON.parse('{{ categories_json|escapejs }}');
+
+        function checkIncomeExceedsBudget() {
+            categories.forEach(category => {
+                if (category.spent > category.budget) {
+                    alert(`Warning: Income for category "${category.name}" exceeds the budget set!`);
+                }
+            });
+        }
+
+        // Check on page load
+        checkIncomeExceedsBudget();
+
+        // Check whenever the budget table is updated
+        document.getElementById('budgetForm').addEventListener('submit', function (e) {
+            setTimeout(checkIncomeExceedsBudget, 500); // Delay to allow table update
+        });
+    });
 </script>
 {% endblock %}
