@@ -19,3 +19,5 @@ dj-rest-auth==5.0.2
 django-allauth==0.61.1
 social-auth-app-django==5.4.0 
 openpyxl
+reportlab
+django_celery_beat

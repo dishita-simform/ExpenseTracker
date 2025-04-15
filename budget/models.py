@@ -11,6 +11,8 @@ from .validators import (
     validate_percentage,
     validate_currency_format
 )
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 class Category(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -166,3 +168,14 @@ class MonthlyBudget(models.Model):
         if self.income > 0:
             return self.income * (1 - self.savings_target / 100)
         return 0
+
+@receiver(post_save, sender=User)
+def create_default_categories(sender, instance, created, **kwargs):
+    if created:
+        for category_name, color in DEFAULT_CATEGORIES.items():
+            Category.objects.create(
+                user=instance,
+                name=category_name,
+                color=color,
+                icon=DEFAULT_CATEGORY_ICONS.get(category_name, 'receipt')
+            )
