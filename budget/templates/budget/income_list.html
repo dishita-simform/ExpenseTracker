@@ -140,6 +140,14 @@
                         <label class="form-label">Date</label>
                         <input type="date" class="form-control" name="date" required max="{{ today|date:'Y-m-d' }}">
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label">Category</label>
+                        <select class="form-select" name="category" required>
+                            {% for category in categories %}
+                                <option value="{{ category.id }}">{{ category.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
@@ -149,6 +157,8 @@
         </div>
     </div>
 </div>
+
+<div id="message-container"></div>
 
 <style>
     .category-icon {
@@ -287,7 +297,7 @@ function editIncome(id) {
 
 function deleteIncome(id) {
     if (confirm('Are you sure you want to delete this income entry?')) {
-        fetch(`/income/${id}/delete/`, {
+        fetch(`/income/${id}/delete/, {
             method: 'POST',
             headers: {
                 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
@@ -320,5 +330,67 @@ function deleteIncome(id) {
         });
     }
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    const addIncomeForm = document.querySelector('#addIncomeModal form');
+    const dateInput = addIncomeForm.querySelector('input[name="date"]');
+
+    // Set default date to today
+    const today = new Date().toISOString().split('T')[0];
+    dateInput.value = today;
+
+    // Set max date to today
+    dateInput.max = today;
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    const addIncomeForm = document.querySelector('#addIncomeModal form');
+    const messageContainer = document.querySelector('#message-container');
+
+    addIncomeForm.addEventListener('submit', function(event) {
+        event.preventDefault();
+
+        const formData = new FormData(this);
+
+        fetch(this.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Display success message
+                showMessage('success', data.message);
+
+                // Optionally, update the table or other UI elements dynamically
+            } else {
+                // Display error message
+                showMessage('danger', data.error);
+            }
+        })
+        .catch(error => {
+            showMessage('danger', 'An error occurred while processing your request.');
+            console.error('Error:', error);
+        });
+    });
+
+    function showMessage(type, message) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.setAttribute('role', 'alert');
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        messageContainer.appendChild(alertDiv);
+
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 5000);
+    }
+});
 </script>
-{% endblock %} 
+{% endblock %}
