@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 from django.conf import settings
 from django.db.models import Sum, Count
 from budget.models import Transaction, Category
-import pandas as pd
 import io
 from django.contrib.auth import get_user_model
 from reportlab.lib import colors

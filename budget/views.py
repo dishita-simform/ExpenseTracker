@@ -1559,3 +1559,22 @@ def test_email(request):
         messages.error(request, f"Error sending test email: {str(e)}")
     
     return redirect('dashboard')
+
+@login_required
+def profile_view(request):
+    """
+    View for displaying and updating user profile information.
+    """
+    if request.method == 'POST':
+        # Handle profile update
+        user = request.user
+        user.first_name = request.POST.get('first_name', user.first_name)
+        user.last_name = request.POST.get('last_name', user.last_name)
+        user.email = request.POST.get('email', user.email)
+        user.save()
+        messages.success(request, 'Profile updated successfully!')
+        return redirect('profile')
+
+    return render(request, 'budget/profile.html', {
+        'user': request.user
+    })
