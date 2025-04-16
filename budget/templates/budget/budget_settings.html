@@ -84,11 +84,11 @@
                                         <td>
                                             <div class="progress">
                                                 {% with percentage=category.spent|div:category.budget|mul:100 %}
-                                                    <div class="progress-bar {% if percentage > 100 %}bg-danger{% elif percentage > 80 %}bg-warning{% else %}bg-success{% endif %}" 
-                                                         role="progressbar" 
-                                                         style="width: {{ percentage }}%;" 
-                                                         aria-valuenow="{{ percentage }}" 
-                                                         aria-valuemin="0" 
+                                                    <div class="progress-bar {% if percentage > 100 %}bg-danger{% elif percentage > 80 %}bg-warning{% else %}bg-success{% endif %}"
+                                                         role="progressbar"
+                                                         style="width: {% if percentage > 100 %}100{% else %}{{ percentage }}{% endif %}%"
+                                                         aria-valuenow="{{ percentage }}"
+                                                         aria-valuemin="0"
                                                          aria-valuemax="100">
                                                         {{ percentage|floatformat:0 }}%
                                                     </div>
@@ -194,7 +194,8 @@
         function checkIncomeExceedsBudget() {
             categories.forEach(category => {
                 if (category.spent > category.budget) {
-                    alert(`Warning: Income for category "${category.name}" exceeds the budget set!`);
+                    showNotification('warning', `Income for category "${category.name}" exceeds the budget set!`)
+                    // alert(`Warning: Income for category "${category.name}" exceeds the budget set!`);
                 }
             });
         }

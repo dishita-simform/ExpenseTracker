@@ -48,11 +48,6 @@ urlpatterns = [
     path('income-sources/<int:source_id>/edit/', views.edit_income_source, name='edit_income_source'),
     path('income-sources/<int:source_id>/delete/', views.delete_income_source, name='delete_income_source'),
     
-    # Transactions
-    path('add-transaction/', views.add_transaction, name='add_transaction'),
-    path('transaction/<int:transaction_id>/edit/', views.edit_transaction, name='edit_transaction'),
-    path('transaction/<int:transaction_id>/delete/', views.delete_transaction, name='delete_transaction'),
-    
     # Budget
     path('budget-settings/', views.budget_settings, name='budget_settings'),
     path('budget-settings/update-monthly/', views.update_monthly_budget, name='update_monthly_budget'),
@@ -71,6 +66,7 @@ urlpatterns = [
     path('api/', include(router.urls)),
     path('api/transaction/<int:transaction_id>/', views.get_transaction, name='get_transaction'),
     path('api/dashboard-data/', views.dashboard_data, name='dashboard_data'),
+    path('api/category-budget/<int:category_id>/', views.category_budget, name='category_budget'),
     
     # Authentication URLs
     path('api/token/', views.CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),

@@ -71,8 +71,8 @@
                                     <td class="ps-4">{{ income.date|date:"M d, Y" }}</td>
                                     <td>
                                         <div class="d-flex align-items-center">
-                                            <div class="category-icon me-2 bg-success">
-                                                <i class="fas fa-money-bill-wave"></i>
+                                            <div class="category-icon me-2" style="background: var(--gradient-success)">
+                                                <i class="fas fa-{{ income.source.icon }}"></i>
                                             </div>
                                             {{ income.source.name }}
                                         </div>
@@ -92,7 +92,7 @@
                                 </tr>
                                 {% empty %}
                                 <tr>
-                                    <td colspan="4" class="text-center py-5">
+                                    <td colspan="5" class="text-center py-5">
                                         <div class="text-muted">
                                             <i class="fas fa-calendar-times fs-2 mb-2"></i>
                                             <p class="mb-0">No income entries found for {{ selected_month_name }} {{ selected_year }}</p>
@@ -118,12 +118,17 @@
                 <h5 class="modal-title">Add Income</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form method="post" action="{% url 'add_income' %}">
+            <form method="post" action="{% url 'add_income' %}" id="addIncomeForm">
                 {% csrf_token %}
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">Source</label>
-                        <input type="text" class="form-control" name="source" required>
+                        <select class="form-select" name="source" required>
+                            <option value="">Select a source</option>
+                            {% for source in sources %}
+                                <option value="{{ source.name }}">{{ source.name }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Amount</label>
@@ -139,14 +144,6 @@
                     <div class="mb-3">
                         <label class="form-label">Date</label>
                         <input type="date" class="form-control" name="date" required max="{{ today|date:'Y-m-d' }}">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Category</label>
-                        <select class="form-select" name="category" required>
-                            {% for category in categories %}
-                                <option value="{{ category.id }}">{{ category.name }}</option>
-                            {% endfor %}
-                        </select>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -190,168 +187,19 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const addIncomeForm = document.querySelector('#addIncomeModal form');
-    const dateInput = addIncomeForm.querySelector('input[name="date"]');
-    
     // Set default date to today
-    dateInput.value = '{{ today|date:"Y-m-d" }}';
-    
-    // Set max date to today
-    dateInput.max = '{{ today|date:"Y-m-d" }}';
-    
-    // Handle form submission
-    addIncomeForm.addEventListener('submit', function(event) {
-        event.preventDefault();
-        
-        const formData = new FormData(this);
-        
-        fetch(this.action, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Add new row to the table
-                const tbody = document.querySelector('.table tbody');
-                const newRow = document.createElement('tr');
-                newRow.innerHTML = `
-                    <td class="ps-4">${data.transaction.date}</td>
-                    <td>
-                        <div class="d-flex align-items-center">
-                            <div class="category-icon me-2 bg-success">
-                                <i class="fas fa-money-bill-wave"></i>
-                            </div>
-                            ${data.transaction.category.name}
-                        </div>
-                    </td>
-                    <td>${data.transaction.description}</td>
-                    <td class="text-end text-success">₹${data.transaction.amount|floatformat:2}</td>
-                    <td class="text-end pe-4">
-                        <div class="btn-group">
-                            <a href="${data.transaction.id}/edit/" class="btn btn-sm btn-outline-primary">
-                                <i class="fas fa-edit"></i>
-                            </a>
-                            <a href="${data.transaction.id}/delete/" class="btn btn-sm btn-outline-danger">
-                                <i class="fas fa-trash"></i>
-                            </a>
-                        </div>
-                    </td>
-                `;
-                
-                // Remove "No income entries yet" message if it exists
-                const noEntriesRow = tbody.querySelector('tr td[colspan="4"]');
-                if (noEntriesRow) {
-                    noEntriesRow.parentElement.remove();
-                }
-                
-                // Add the new row at the top
-                tbody.insertBefore(newRow, tbody.firstChild);
-                
-                // Update total income
-                const totalElement = document.querySelector('.card-header h5:last-child');
-                const currentTotal = parseFloat(totalElement.textContent.replace('Total: ₹', ''));
-                totalElement.textContent = `Total: ₹${currentTotal + data.transaction.amount}`;
-                
-                // Close modal and reset form
-                const modal = bootstrap.Modal.getInstance(document.getElementById('addIncomeModal'));
-                modal.hide();
-                this.reset();
-                dateInput.value = '{{ today|date:"Y-m-d" }}';
-                
-                // Show success message
-                showAlert('success', data.message);
-            } else {
-                showAlert('danger', data.error || 'Error adding income');
-            }
-        })
-        .catch(error => {
-            showAlert('danger', 'Error adding income');
-            console.error('Error:', error);
-        });
-    });
-    
-    // Function to show alert messages
-    function showAlert(type, message) {
-        const alertDiv = document.createElement('div');
-        alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
-        alertDiv.setAttribute('role', 'alert');
-        alertDiv.innerHTML = `
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        `;
-        document.body.appendChild(alertDiv);
-        
-        setTimeout(() => {
-            alertDiv.remove();
-        }, 3000);
-    }
-});
-
-function editIncome(id) {
-    window.location.href = `/income/${id}/edit/`;
-}
-
-function deleteIncome(id) {
-    if (confirm('Are you sure you want to delete this income entry?')) {
-        fetch(`/income/${id}/delete/, {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Remove the row from the table
-                const row = document.querySelector(`tr[data-id="${id}"]`);
-                if (row) {
-                    row.remove();
-                }
-                
-                // Update total income
-                const totalElement = document.querySelector('.card-header h5:last-child');
-                const currentTotal = parseFloat(totalElement.textContent.replace('Total: ₹', ''));
-                totalElement.textContent = `Total: ₹${currentTotal - data.amount}`;
-                
-                // Show success message
-                showAlert('success', 'Income entry deleted successfully');
-            } else {
-                showAlert('danger', data.error || 'Error deleting income entry');
-            }
-        })
-        .catch(error => {
-            showAlert('danger', 'Error deleting income entry');
-            console.error('Error:', error);
-        });
-    }
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    const addIncomeForm = document.querySelector('#addIncomeModal form');
-    const dateInput = addIncomeForm.querySelector('input[name="date"]');
-
-    // Set default date to today
+    const dateInput = document.querySelector('#addIncomeModal input[name="date"]');
     const today = new Date().toISOString().split('T')[0];
     dateInput.value = today;
-
-    // Set max date to today
     dateInput.max = today;
-});
 
-document.addEventListener('DOMContentLoaded', function() {
-    const addIncomeForm = document.querySelector('#addIncomeModal form');
-    const messageContainer = document.querySelector('#message-container');
-
+    // Handle form submission
+    const addIncomeForm = document.querySelector('#addIncomeForm');
     addIncomeForm.addEventListener('submit', function(event) {
         event.preventDefault();
-
+        
         const formData = new FormData(this);
-
+        
         fetch(this.action, {
             method: 'POST',
             body: formData,
@@ -362,35 +210,24 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Display success message
-                showMessage('success', data.message);
-
-                // Optionally, update the table or other UI elements dynamically
+                // Show success notification
+                showNotification('success', data.message);
+                
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('addIncomeModal'));
+                modal.hide();
+                
+                // Reload page to show new data
+                setTimeout(() => window.location.reload(), 500);
             } else {
-                // Display error message
-                showMessage('danger', data.error);
+                showNotification('danger', data.error || 'Error adding income');
             }
         })
         .catch(error => {
-            showMessage('danger', 'An error occurred while processing your request.');
+            showNotification('danger', 'Error adding income');
             console.error('Error:', error);
         });
     });
-
-    function showMessage(type, message) {
-        const alertDiv = document.createElement('div');
-        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
-        alertDiv.setAttribute('role', 'alert');
-        alertDiv.innerHTML = `
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        `;
-        messageContainer.appendChild(alertDiv);
-
-        setTimeout(() => {
-            alertDiv.remove();
-        }, 5000);
-    }
 });
 </script>
 {% endblock %}

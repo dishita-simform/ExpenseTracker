@@ -88,37 +88,54 @@ def register(request):
 
 @login_required
 def expense_list(request):
-    # Get current year and month
-    current_date = timezone.now()
-    current_year = current_date.year
-    current_month = current_date.month
-
-    # Get selected year and month from request or use current
-    selected_year = int(request.GET.get('year', current_year))
-    selected_month = int(request.GET.get('month', current_month))
+    # Get selected year and month
+    selected_year = request.GET.get('year', timezone.now().year)
+    selected_month = request.GET.get('month', timezone.now().month)
+    
+    try:
+        selected_year = int(selected_year)
+        selected_month = int(selected_month)
+    except (ValueError, TypeError):
+        selected_year = timezone.now().year
+        selected_month = timezone.now().month
 
     # Generate year and month choices
     current_year = timezone.now().year
     years = range(current_year - 5, current_year + 1)  # Last 5 years
     months = [(i, calendar.month_name[i]) for i in range(1, 13)]
 
+    # Get categories with budget and spent information
+    categories = Category.objects.filter(user=request.user)
+    categories_dict = {}
+    for category in categories:
+        spent = Expense.objects.filter(
+            user=request.user,
+            category=category,
+            date__month=selected_month,
+            date__year=selected_year
+        ).aggregate(total=Sum('amount'))['total'] or 0
+        category.spent = spent
+        categories_dict[category.id] = category
+
     # Filter expenses by selected year and month
     expenses = Expense.objects.filter(
         user=request.user,
         date__year=selected_year,
         date__month=selected_month
-    ).order_by('-date')
+    ).select_related('category').order_by('-date')
+
+    # Add budget information to each expense's category
+    for expense in expenses:
+        if expense.category_id in categories_dict:
+            expense.category.spent = categories_dict[expense.category_id].spent
 
     # Calculate total
     total = expenses.aggregate(total=Sum('amount'))['total'] or 0
 
-    categories = Category.objects.filter(user=request.user).distinct()
-    today = timezone.now()
-
     context = {
         'expenses': expenses,
         'categories': categories,
-        'today': today,
+        'today': timezone.now(),
         'years': years,
         'months': months,
         'selected_year': selected_year,
@@ -134,13 +151,24 @@ def add_expense(request):
         if form.is_valid():
             expense = form.save(commit=False)
             expense.user = request.user
-            expense.save()
-            messages.success(request, 'Expense added successfully!')
-            return redirect('expense_list')
+            try:
+                expense.save()
+                messages.success(request, 'Expense added successfully!')
+                return redirect('expense_list')
+            except Exception as e:
+                messages.error(request, f'Error saving expense: {str(e)}')
+        else:
+            messages.error(request, 'Please correct the errors below.')
     else:
-        form = ExpenseForm(user=request.user)
+        # Initialize form with today's date
+        form = ExpenseForm(user=request.user, initial={'date': timezone.now().date()})
 
-    return render(request, 'budget/expense_form.html', {'form': form, 'expense': None})
+    context = {
+        'form': form,
+        'expense': None,
+        'today': timezone.now().date().isoformat()
+    }
+    return render(request, 'budget/expense_form.html', context)
 
 @login_required
 def edit_expense(request, expense_id):
@@ -402,6 +430,9 @@ def income_list(request):
         (5, 'May'), (6, 'June'), (7, 'July'), (8, 'August'),
         (9, 'September'), (10, 'October'), (11, 'November'), (12, 'December')
     ]
+
+    # Get income sources for the form
+    sources = IncomeSource.objects.filter(user=request.user)
     
     context = {
         'incomes': incomes,
@@ -412,6 +443,7 @@ def income_list(request):
         'available_years': available_years,
         'month_names': month_names,
         'selected_month_name': dict(month_names)[selected_month],
+        'sources': sources,
     }
     return render(request, 'budget/income_list.html', context)
 
@@ -448,6 +480,8 @@ def add_income(request):
                 date=date
             )
 
+            messages.success(request, 'Income added successfully!')
+
             # If this is an AJAX request, return JSON response
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({
@@ -458,7 +492,7 @@ def add_income(request):
                         'type': 'income',
                         'category': {
                             'name': source.name,
-                            'icon': 'money-bill-wave',
+                            'icon': source.icon,
                             'color': 'success'
                         },
                         'description': description or source.name,
@@ -467,24 +501,27 @@ def add_income(request):
                     }
                 })
 
-            messages.success(request, 'Income added successfully!')
-            return redirect('dashboard')
+            return redirect('income_list')
             
         except Exception as e:
+            error_message = str(e)
+            messages.error(request, f'Error adding income: {error_message}')
+            
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({
                     'success': False,
-                    'error': str(e)
+                    'error': error_message
                 }, status=400)
-            messages.error(request, f'Error adding income: {str(e)}')
-            return redirect('dashboard')
+            
+            return redirect('income_list')
     
-    return redirect('dashboard')
+    return redirect('income_list')
 
 @login_required
 def budget_settings(request):
     # Get or create categories for the user
     categories = Category.objects.filter(user=request.user)
+    print(categories)
     existing_category_names = [cat.name for cat in categories]
     
     # Create missing categories from the predefined list
@@ -596,6 +633,35 @@ def category_list(request):
     return render(request, 'budget/category_list.html', {'categories': categories})
 
 @login_required
+def category_budget(request, category_id):
+    """API endpoint to get category budget information"""
+    if not request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'error': 'Invalid request'}, status=400)
+    
+    try:
+        category = Category.objects.get(id=category_id, user=request.user)
+        current_month = timezone.now().month
+        current_year = timezone.now().year
+        
+        # Get total spent this month
+        spent = Expense.objects.filter(
+            user=request.user,
+            category=category,
+            date__month=current_month,
+            date__year=current_year
+        ).aggregate(total=Sum('amount'))['total'] or 0
+        
+        return JsonResponse({
+            'budget': float(category.budget) if category.budget else None,
+            'spent': float(spent),
+            'remaining': float(category.budget - spent) if category.budget else None
+        })
+    except Category.DoesNotExist:
+        return JsonResponse({'error': 'Category not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
 def add_category(request):
     if request.method == 'POST':
         name = request.POST.get('name')
@@ -665,77 +731,6 @@ def delete_category(request, category_id):
         return redirect('category_list')
     
     return render(request, 'budget/delete_category.html', {'category': category})
-
-@login_required
-def add_transaction(request):
-    if request.method == 'POST':
-        try:
-            # Get form data
-            category_id = request.POST.get('category')
-            amount = request.POST.get('amount')
-            description = request.POST.get('description', '')
-            date_str = request.POST.get('date')
-
-            # Debug logging
-            print(f"Received data: category={category_id}, amount={amount}, date={date_str}, description={description}")
-
-            # Validate required fields
-            if not all([category_id, amount, date_str]):
-                raise ValueError('Category, amount, and date are required')
-
-            # Get the category - make sure to filter by user
-            try:
-                category = Category.objects.get(id=category_id, user=request.user)
-            except Category.DoesNotExist:
-                raise ValueError('Invalid category selected')
-
-            # Create the expense record
-            expense = Expense.objects.create(
-                user=request.user,
-                category=category,
-                amount=Decimal(str(amount).replace(',', '')),  # Handle comma-separated numbers
-                description=description,
-                date=date_str
-            )
-
-            messages.success(request, 'Expense added successfully!')
-            
-            # If this is an AJAX request, return JSON response
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({
-                    'success': True,
-                    'message': 'Expense added successfully',
-                    'transaction': {
-                        'id': expense.id,
-                        'type': 'expense',
-                        'category': {
-                            'name': category.name,
-                            'icon': category.icon,
-                            'color': category.color
-                        },
-                        'description': description,
-                        'amount': -float(amount),
-                        'date': expense.date.strftime('%b %d, %Y')
-                    }
-                })
-
-            return redirect('dashboard')
-
-        except ValueError as e:
-            error_message = str(e)
-        except Exception as e:
-            error_message = f'Error adding expense: {str(e)}'
-            print(f"Error details: {str(e)}")  # Debug logging
-
-        messages.error(request, error_message)
-        
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return JsonResponse({
-                'success': False,
-                'error': error_message
-            }, status=400)
-
-    return redirect('dashboard')
 
 @login_required
 def income_source_list(request):
