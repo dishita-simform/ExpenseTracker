@@ -130,7 +130,7 @@ def expense_list(request):
 @login_required
 def add_expense(request):
     if request.method == 'POST':
-        form = ExpenseForm(request.POST)
+        form = ExpenseForm(request.POST, user=request.user)
         if form.is_valid():
             expense = form.save(commit=False)
             expense.user = request.user
@@ -138,12 +138,9 @@ def add_expense(request):
             messages.success(request, 'Expense added successfully!')
             return redirect('expense_list')
     else:
-        form = ExpenseForm()
-        # Get user's categories
-        categories = Category.objects.filter(user=request.user)
-        form.fields['category'].queryset = categories
-    
-    return render(request, 'budget/add_expense.html', {'form': form})
+        form = ExpenseForm(user=request.user)
+
+    return render(request, 'budget/expense_form.html', {'form': form, 'expense': None})
 
 @login_required
 def edit_expense(request, expense_id):
