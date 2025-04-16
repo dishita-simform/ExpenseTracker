@@ -4,19 +4,20 @@ from django.shortcuts import redirect
 from django.contrib.auth import views as auth_views
 from . import views
 from rest_framework_simplejwt.views import TokenRefreshView
-from .views import budget_statistics, monthly_summary, expense_trends
+from .views import budget_statistics, home, monthly_summary, expense_trends
 
 router = DefaultRouter()
 router.register(r'expenses', views.ExpenseViewSet, basename='expense')
 router.register(r'categories', views.CategoryViewSet, basename='category')
 
-def home(request):
+def auth_home(request):
     return redirect('dashboard')
 
 urlpatterns = [
     # Dashboard and home
     path('dashboard/', views.dashboard, name='dashboard'),
-    path('home/', home, name='home'),
+    path('auth_home/', auth_home, name='home'),
+    path('', home, name='root'),
     
     # Authentication
     path('register/', views.RegisterView.as_view(), name='register'),

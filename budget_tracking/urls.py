@@ -22,17 +22,11 @@ from django.contrib.auth import views as auth_views
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from dj_rest_auth.registration.views import VerifyEmailView, ResendEmailVerificationView
 from dj_rest_auth.views import LoginView, LogoutView, PasswordResetView, PasswordResetConfirmView
-from budget.views import home, dashboard, register, custom_logout, custom_password_reset
+from budget.views import dashboard, register, custom_logout, custom_password_reset
 
 urlpatterns = [
-    # Root URL - redirect to home or dashboard
-    path('', home, name='root'),
-    
-    # Admin
+     path('', include('budget.urls')),
     path('admin/', admin.site.urls),
-    
-    # Budget app URLs
-    path('api/', include('budget.urls')),
     
     # Web Authentication
     path('accounts/login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
