@@ -40,24 +40,17 @@ urlpatterns = [
     
     # Income
     path('income/', views.income_list, name='income_list'),
-    path('add-income/', views.add_income, name='add_income'),
+    path('income/add/', views.add_income, name='add_income'),
     path('income/<int:income_id>/edit/', views.edit_income, name='edit_income'),
     path('income/<int:income_id>/delete/', views.delete_income, name='delete_income'),
-    path('income-sources/', views.income_source_list, name='income_source_list'),
-    path('income-sources/add/', views.add_income_source, name='add_income_source'),
-    path('income-sources/<int:source_id>/edit/', views.edit_income_source, name='edit_income_source'),
-    path('income-sources/<int:source_id>/delete/', views.delete_income_source, name='delete_income_source'),
     
     # Budget
     path('budget-settings/', views.budget_settings, name='budget_settings'),
     path('budget-settings/update-monthly/', views.update_monthly_budget, name='update_monthly_budget'),
     path('budget-history/', views.budget_history, name='budget_history'),
-    
-    # Categories
-    path('categories/', views.category_list, name='category_list'),
-    path('categories/add/', views.add_category, name='add_category'),
-    path('categories/<int:category_id>/edit/', views.edit_category, name='edit_category'),
-    path('categories/<int:category_id>/delete/', views.delete_category, name='delete_category'),
+    path('manage-category-budgets/', views.manage_category_budgets, name='manage_category_budgets'),
+    path('reset-category-budget/<int:category_id>/', views.reset_category_budget, name='reset_category_budget'),
+    path('check-budget/<int:category_id>/', views.check_budget, name='check_budget'),
     
     # Reports
     path('reports/', views.reports, name='reports'),
@@ -67,7 +60,7 @@ urlpatterns = [
     path('api/transaction/<int:transaction_id>/', views.get_transaction, name='get_transaction'),
     path('api/dashboard-data/', views.dashboard_data, name='dashboard_data'),
     path('api/category-budget/<int:category_id>/', views.category_budget, name='category_budget'),
-    
+   
     # Authentication URLs
     path('api/token/', views.CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),

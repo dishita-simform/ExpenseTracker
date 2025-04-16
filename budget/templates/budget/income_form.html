@@ -1,0 +1,87 @@
+{% extends 'budget/base.html' %}
+{% load static %}
+
+{% block title %}{% if income %}Edit{% else %}Add{% endif %} Income - Budget Tracker{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="mb-0">{% if income %}Edit{% else %}Add{% endif %} Income</h3>
+                </div>
+                <div class="card-body">
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    <form method="post" action="{% if income %}{% url 'edit_income' income.id %}{% else %}{% url 'add_income' %}{% endif %}">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="source" class="form-label">Source</label>
+                            <input type="text" class="form-control {% if form.source.errors %}is-invalid{% endif %}" id="source" name="source" required>
+                            {% if form.source.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.source.errors|join:", " }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="amount" class="form-label">Amount</label>
+                            <div class="input-group">
+                                <span class="input-group-text">₹</span>
+                                <input type="number" step="0.01" min="0" class="form-control {% if form.amount.errors %}is-invalid{% endif %}" 
+                                       id="amount" name="amount" required>
+                                {% if form.amount.errors %}
+                                    <div class="invalid-feedback">
+                                        {{ form.amount.errors|join:", " }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="date" class="form-label">Date</label>
+                            <input type="date" class="form-control {% if form.date.errors %}is-invalid{% endif %}" 
+                                   id="date" name="date" value="{{ date }}" 
+                                   max="{{ today }}" required>
+                            {% if form.date.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.date.errors|join:", " }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>{% if income %}Save Changes{% else %}Add Income{% endif %}
+                            </button>
+                            <a href="{% url 'income_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-2"></i>Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div> 
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Set default date to today if no date is set
+    const dateInput = document.querySelector('input[name="date"]');
+    if (!dateInput.value) {
+        const today = new Date().toISOString().split('T')[0];
+        dateInput.value = today;
+    }
+});
+</script>
+{% endblock %}

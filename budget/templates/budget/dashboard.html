@@ -54,13 +54,6 @@
     height: 350px;
     width: 100%;
 }
-
-/* Add gradient background classes */
-{% for category in budget_categories %}
-.bg-gradient-{{ category.color }} {
-    background: var(--gradient-{{ category.color }});
-}
-{% endfor %}
 </style>
 {% endblock %}
 
@@ -110,25 +103,8 @@
 
     <!-- Stats Cards -->
     <div class="row g-4 mb-4">
-        <!-- Total Balance -->
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="card stat-card">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-2">Total Balance</h6>
-                            <h3 class="mb-0" id="totalBalance">₹{{ total_balance }}</h3>
-                        </div>
-                        <div class="stat-icon bg-primary">
-                            <i class="fas fa-wallet"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- Income -->
-        <div class="col-12 col-sm-6 col-xl-3">
+        <div class="col-12 col-sm-6 col-xl-4">
             <div class="card stat-card">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
@@ -145,7 +121,7 @@
         </div>
 
         <!-- Expenses -->
-        <div class="col-12 col-sm-6 col-xl-3">
+        <div class="col-12 col-sm-6 col-xl-4">
             <div class="card stat-card">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
@@ -162,7 +138,7 @@
         </div>
 
         <!-- Savings -->
-        <div class="col-12 col-sm-6 col-xl-3">
+        <div class="col-12 col-sm-6 col-xl-4">
             <div class="card stat-card">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
@@ -185,7 +161,7 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-header bg-transparent py-3 d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Budget Overview for {{ selected_month_name }} {{ selected_year }}</h5>
+                    <h5 class="mb-0">Expense Breakdown for {{ selected_month_name }} {{ selected_year }}</h5>
                     <a href="{% url 'budget_settings' %}" class="btn btn-sm btn-primary">
                         <i class="fas fa-cog me-2"></i>Settings
                     </a>
@@ -216,14 +192,22 @@
     <div class="card mt-4">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h4 class="mb-0">Recent Transactions</h4>
+            <div>
+                <a href="{% url 'expense_list' %}" class="btn btn-sm btn-danger me-2">
+                    <i class="fas fa-list me-2"></i>All Expenses
+                </a>
+                <a href="{% url 'income_list' %}" class="btn btn-sm btn-success">
+                    <i class="fas fa-list me-2"></i>All Income
+                </a>
+            </div>
         </div>
         <div class="card-body">
             <div class="list-group">
-                {% for transaction in recent_transactions %}
+                {% for transaction in recent_transactions|slice:":3" %}
                     <div class="list-group-item">
                         <div class="d-flex justify-content-between align-items-center">
                             <div class="d-flex align-items-center">
-                                <div class="icon-circle {{ transaction.type }}" style="width: 40px; height: 40px; margin-right: 1rem;">
+                                <div class="icon-circle {% if transaction.type == 'expense' %}bg-danger{% else %}bg-success{% endif %}" style="width: 40px; height: 40px; margin-right: 1rem;">
                                     <i class="fas fa-{{ transaction.category.icon }}"></i>
                                 </div>
                                 <div>
@@ -232,7 +216,7 @@
                                 </div>
                             </div>
                             <div class="d-flex align-items-center">
-                                <span class="h6 mb-0 me-3 {% if transaction.amount < 0 %}text-danger{% else %}text-success{% endif %}">
+                                <span class="h6 mb-0 me-3 {% if transaction.type == 'expense' %}text-danger{% else %}text-success{% endif %}">
                                     Rs. {{ transaction.amount|floatformat:2 }}
                                 </span>
                                 <div class="btn-group">
@@ -301,17 +285,17 @@
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize pie chart
     try {
-        const budgetDataStr = '{{ budget_data|safe|escapejs }}';
-        const budgetData = JSON.parse(budgetDataStr);
-        if (budgetData && budgetData.length > 0) {
+        const expenseDataStr = '{{ expense_data|safe|escapejs }}';
+        const expenseData = JSON.parse(expenseDataStr);
+        if (expenseData && expenseData.length > 0) {
             const ctx = document.getElementById('budgetPieChart').getContext('2d');
             const chart = new Chart(ctx, {
                 type: 'doughnut',
                 data: {
-                    labels: budgetData.map(function(item) { return item.name; }),
+                    labels: expenseData.map(function(item) { return item.name; }),
                     datasets: [{
-                        data: budgetData.map(function(item) { return item.spent; }),
-                        backgroundColor: budgetData.map(function(item) { return item.color; }),
+                        data: expenseData.map(function(item) { return item.spent; }),
+                        backgroundColor: expenseData.map(function(item) { return item.color; }),
                         borderWidth: 0
                     }]
                 },
@@ -343,18 +327,31 @@ document.addEventListener('DOMContentLoaded', function() {
                     cutout: '60%'
                 }
             });
-            window.budgetChart = chart;
+            window.expenseChart = chart;
+        } else {
+            // Display a message in the chart container if no data
+            const chartContainer = document.querySelector('.chart-container');
+            if (chartContainer) {
+                chartContainer.innerHTML = '<div class="text-center py-4"><p class="text-muted">No expenses recorded for this period.</p></div>';
+            }
         }
     } catch (error) {
         console.error('Error initializing chart:', error);
+        // Display error message in the chart container
+        const chartContainer = document.querySelector('.chart-container');
+        if (chartContainer) {
+            chartContainer.innerHTML = '<div class="text-center py-4"><p class="text-danger">Error loading chart data.</p></div>';
+        }
     }
 
     // Update time display
     function updateTime() {
         const now = new Date();
-        document.getElementById('currentTime').textContent = now.toLocaleTimeString();
+        const lastLogin = '{{ request.user.last_login|date:"F j, Y, g:i a" }}';
+        document.getElementById('currentTime').textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
         document.getElementById('currentDate').textContent = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
         document.getElementById('currentDay').textContent = now.toLocaleDateString('en-US', { weekday: 'long' });
+        document.getElementById('dateTime').textContent = `Last Login: ${lastLogin}`;
     }
     updateTime();
     setInterval(updateTime, 1000);
@@ -365,6 +362,19 @@ document.addEventListener('DOMContentLoaded', function() {
         const month = document.getElementById('month').value;
         window.location.href = `/budget/export-report/?year=${year}&month=${month}`;
     });
+
+    // Update total balance, income, expenses, and savings dynamically
+    function updateStats(income, expenses) {
+        const savings = income - expenses; // Savings = Income - Expenses
+        document.getElementById('totalIncome').textContent = `₹${income.toFixed(2)}`;
+        document.getElementById('totalExpenses').textContent = `₹${expenses.toFixed(2)}`;
+        document.getElementById('totalSavings').textContent = `₹${savings.toFixed(2)}`;
+    }
+
+    // Example usage of the formula
+    const income = parseFloat('{{ total_income|default:0 }}');
+    const expenses = parseFloat('{{ total_expenses|default:0 }}');
+    updateStats(income, expenses);
 });
 </script>
-{% endblock %} 
+{% endblock %}

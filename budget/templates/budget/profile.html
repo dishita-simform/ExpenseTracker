@@ -65,7 +65,7 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label text-muted">Last Login</label>
-                                <p class="h5">{{ user.last_login|date:"F j, Y H:i" }}</p>
+                                <p class="h5">{{ user.last_login|date:"F j, Y h:i A" }}</p>
                             </div>
                         </div>
                     </div>
@@ -74,4 +74,4 @@
         </div>
     </div>
 </div>
-{% endblock %} 
+{% endblock %}

@@ -82,18 +82,28 @@
                                         <td>₹{{ category.spent|default:0 }}</td>
                                         <td>₹{{ category.remaining|default:0 }}</td>
                                         <td>
-                                            <div class="progress">
+                                            <div class="progress" style="position: relative;">
                                                 {% with percentage=category.spent|div:category.budget|mul:100 %}
-                                                    <div class="progress-bar {% if percentage > 100 %}bg-danger{% elif percentage > 80 %}bg-warning{% else %}bg-success{% endif %}"
+                                                    <div class="progress-bar 
+                                                                {% if percentage > 100 %}
+                                                                    bg-danger
+                                                                {% elif percentage > 80 %}
+                                                                    bg-warning
+                                                                {% else %}
+                                                                    bg-success
+                                                                {% endif %}"
                                                          role="progressbar"
-                                                         style="width: {% if percentage > 100 %}100{% else %}{{ percentage }}{% endif %}%"
                                                          aria-valuenow="{{ percentage }}"
                                                          aria-valuemin="0"
-                                                         aria-valuemax="100">
-                                                        {{ percentage|floatformat:0 }}%
+                                                         aria-valuemax="100"
+                                                         style="width: {{ percentage|floatformat:0|default:0 }}%;">
                                                     </div>
+                                                    <span class="progress-text"
+                                                          style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); color: #6b7280;font-size: var(--bs-body-font-size); font-family: 'Poppins', sans-serif;">
+                                                        {{ percentage|floatformat:0|default:0 }}%
+                                                    </span>
                                                 {% endwith %}
-                                            </div>
+                                            </div>                                            
                                         </td>
                                     </tr>
                                 {% endif %}
@@ -113,46 +123,7 @@
 <script>
     const categories = JSON.parse('{{ categories_json|escapejs }}');
 
-    function updateBudgetTable(categoryId, budgetLimit, spent, remaining) {
-        const rowId = `category-row-${categoryId}`;
-        const existingRow = document.getElementById(rowId);
-        
-        const category = categories.find(c => c.id == categoryId);
-        if (!category) return;
-        
-        const percentage = budgetLimit > 0 ? (spent / budgetLimit) * 100 : 0;
-        const progressBarClass = percentage > 100 ? 'bg-danger' : (percentage > 80 ? 'bg-warning' : 'bg-success');
-        
-        const newRow = `
-            <tr id="${rowId}">
-                <td>
-                    <i class="fas fa-${category.icon} me-2"></i>
-                    ${category.name}
-                </td>
-                <td>₹${budgetLimit}</td>
-                <td>₹${spent}</td>
-                <td>₹${remaining}</td>
-                <td>
-                    <div class="progress">
-                        <div class="progress-bar ${progressBarClass}" 
-                             role="progressbar" 
-                             style="width: ${percentage}%;" 
-                             aria-valuenow="${percentage}" 
-                             aria-valuemin="0" 
-                             aria-valuemax="100">
-                            ${percentage.toFixed(0)}%
-                        </div>
-                    </div>
-                </td>
-            </tr>
-        `;
-        
-        if (existingRow) {
-            existingRow.outerHTML = newRow;
-        } else {
-            document.getElementById('budgetTableBody').innerHTML += newRow;
-        }
-    }
+    
 
     document.getElementById('categorySelect').addEventListener('change', function () {
         const selectedId = this.value;
@@ -206,6 +177,28 @@
         // Check whenever the budget table is updated
         document.getElementById('budgetForm').addEventListener('submit', function (e) {
             setTimeout(checkIncomeExceedsBudget, 500); // Delay to allow table update
+        });
+    });
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const categories = JSON.parse('{{ categories_json|escapejs }}');
+
+        function updateProgressBarStyle() {
+            const progressBars = document.querySelectorAll('.progress-bar');
+            progressBars.forEach(bar => {
+                const percentage = parseFloat(bar.getAttribute('aria-valuenow'));
+                if (percentage > 100) {
+                    bar.style.width = '100%';
+                } else {
+                    bar.style.width = `${percentage}%`;
+                }
+            });
+        }
+
+        updateProgressBarStyle();
+
+        document.getElementById('budgetForm').addEventListener('submit', function (e) {
+            setTimeout(updateProgressBarStyle, 500); // Delay to allow table update
         });
     });
 </script>

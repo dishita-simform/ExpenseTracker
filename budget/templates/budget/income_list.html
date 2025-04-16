@@ -10,9 +10,9 @@
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center">
                 <h1 class="h3 mb-0">Income</h1>
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addIncomeModal">
+                <a href="{% url 'add_income' %}" class="btn btn-primary">
                     <i class="fas fa-plus me-2"></i>Add New
-                </button>
+                </a>
             </div>
         </div>
     </div>
@@ -109,52 +109,6 @@
         </div>
     </div>
 </div>
-
-<!-- Add Income Modal -->
-<div class="modal fade" id="addIncomeModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Add Income</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <form method="post" action="{% url 'add_income' %}" id="addIncomeForm">
-                {% csrf_token %}
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Source</label>
-                        <select class="form-select" name="source" required>
-                            <option value="">Select a source</option>
-                            {% for source in sources %}
-                                <option value="{{ source.name }}">{{ source.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Amount</label>
-                        <div class="input-group">
-                            <span class="input-group-text">₹</span>
-                            <input type="number" class="form-control" name="amount" step="0.01" min="0" required>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Description (Optional)</label>
-                        <input type="text" class="form-control" name="description">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Date</label>
-                        <input type="date" class="form-control" name="date" required max="{{ today|date:'Y-m-d' }}">
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Add Income</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
 <div id="message-container"></div>
 
 <style>

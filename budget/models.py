@@ -15,76 +15,140 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 class Category(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    name = models.CharField(max_length=100)
-    description = models.TextField(blank=True, help_text="Optional description of the category")
+    name = models.CharField(max_length=100, unique=True)
     icon = models.CharField(max_length=50, default='receipt')  # FontAwesome icon name
     color = models.CharField(max_length=50, default='primary')  # Bootstrap color name
-    budget = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # Monthly budget amount
-    is_active = models.BooleanField(default=True, help_text="Whether this category is currently active")
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name_plural = 'Categories'
-        unique_together = ['user', 'name']
         ordering = ['name']
 
     def __str__(self):
         return self.name
 
     @classmethod
-    def create_default_categories(cls, user):
-        """Create default categories for a new user"""
+    def create_default_categories(cls):
+        """Create default categories"""
         for category_name, color in DEFAULT_CATEGORIES.items():
-            if not cls.objects.filter(user=user, name=category_name).exists():
+            if not cls.objects.filter(name=category_name).exists():
                 cls.objects.create(
-                    user=user,
                     name=category_name,
                     color=color,
-                    icon=DEFAULT_CATEGORY_ICONS.get(category_name, 'receipt'),
-                    description=f"Default {category_name} category"
+                    icon=DEFAULT_CATEGORY_ICONS.get(category_name, 'receipt')
                 )
 
     @property
+    def remaining_budget(self):
+        """Calculate the remaining budget for this category."""
+        total_budget = self.categorybudget_set.aggregate(total=models.Sum('amount'))['total'] or 0
+        total_spent = self.expense_set.aggregate(total=models.Sum('amount'))['total'] or 0
+        return total_budget - total_spent
+
+class CategoryBudget(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    category = models.ForeignKey(Category, on_delete=models.CASCADE)
+    monthly_budget = models.ForeignKey('MonthlyBudget', on_delete=models.CASCADE)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, validators=[validate_positive_amount, validate_currency_format])
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['monthly_budget', 'category']
+        ordering = ['category__name']
+
+    def __str__(self):
+        return f"{self.category.name} - ₹{self.amount} ({self.monthly_budget.month}/{self.monthly_budget.year})"
+
+    @property
     def total_spent(self):
-        """Calculate total spent in this category for the current month"""
-        current_month = timezone.now().date().replace(day=1)
-        return self.expense_set.filter(
-            date__gte=current_month,
-            date__lt=current_month.replace(day=28) + timezone.timedelta(days=4)
+        """Calculate total spent in this category for the budget's month"""
+        start_date = timezone.datetime(self.monthly_budget.year, self.monthly_budget.month, 1).date()
+        if self.monthly_budget.month == 12:
+            end_date = timezone.datetime(self.monthly_budget.year + 1, 1, 1).date()
+        else:
+            end_date = timezone.datetime(self.monthly_budget.year, self.monthly_budget.month + 1, 1).date()
+
+        return Expense.objects.filter(
+            user=self.user,
+            category=self.category,
+            date__gte=start_date,
+            date__lt=end_date
         ).aggregate(total=models.Sum('amount'))['total'] or 0
 
     @property
     def remaining_budget(self):
-        """Calculate remaining budget for the current month"""
-        return self.budget - self.total_spent
+        """Calculate remaining budget for this category"""
+        return self.amount - self.total_spent
 
     @property
     def budget_percentage(self):
         """Calculate percentage of budget used"""
-        if self.budget > 0:
-            return (self.total_spent / self.budget) * 100
+        if self.amount > 0:
+            return (self.total_spent / self.amount) * 100
         return 0
 
-    def get_statistics(self, start_date=None, end_date=None):
-        """Get category statistics for a given date range"""
-        if not start_date:
-            start_date = timezone.now().date().replace(day=1)
-        if not end_date:
-            end_date = timezone.now().date()
+class MonthlyBudget(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    year = models.IntegerField(default=timezone.now().year)
+    month = models.IntegerField(default=timezone.now().month)
+    total_budget = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    income = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    savings_target = models.DecimalField(max_digits=5, decimal_places=2, default=20)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
-        expenses = self.expense_set.filter(date__range=[start_date, end_date])
-        total_spent = expenses.aggregate(total=models.Sum('amount'))['total'] or 0
-        expense_count = expenses.count()
-        avg_expense = total_spent / expense_count if expense_count > 0 else 0
+    class Meta:
+        unique_together = ['user', 'year', 'month']
+        ordering = ['-year', '-month']
 
-        return {
-            'total_spent': total_spent,
-            'expense_count': expense_count,
-            'average_expense': avg_expense,
-            'budget_used': (total_spent / self.budget * 100) if self.budget > 0 else 0
-        }
+    def __str__(self):
+        return f"{self.user.username}'s Budget for {self.month}/{self.year}"
+
+    @property
+    def target_expenses(self):
+        """Calculate target expenses based on income and savings target"""
+        if self.income > 0:
+            return self.income * (1 - self.savings_target / 100)
+        return 0
+
+    @property
+    def total_spent(self):
+        """Calculate total spent across all categories for this month"""
+        start_date = timezone.datetime(self.year, self.month, 1).date()
+        if self.month == 12:
+            end_date = timezone.datetime(self.year + 1, 1, 1).date()
+        else:
+            end_date = timezone.datetime(self.year, self.month + 1, 1).date()
+
+        return Expense.objects.filter(
+            user=self.user,
+            date__gte=start_date,
+            date__lt=end_date
+        ).aggregate(total=models.Sum('amount'))['total'] or 0
+
+    @property
+    def remaining_budget(self):
+        """Calculate remaining budget for this month"""
+        return self.total_budget - self.total_spent
+
+    @property
+    def budget_percentage(self):
+        """Calculate percentage of budget used"""
+        if self.total_budget > 0:
+            return (self.total_spent / self.total_budget) * 100
+        return 0
+
+    def get_category_budgets(self):
+        """Get all category budgets for this month"""
+        return CategoryBudget.objects.filter(monthly_budget=self)
+
+    def set_category_budget(self, category, amount):
+        """Set or update budget for a specific category"""
+        return CategoryBudget.objects.update_or_create(
+            monthly_budget=self,
+            category=category,
+            defaults={'amount': amount, 'user': self.user}
+        )
 
 class Budget(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -117,7 +181,7 @@ class Expense(models.Model):
         if self.date and self.date > current_date:
             raise ValidationError({'date': 'Expense date cannot be in the future.'})
         if self.category and self.amount > self.category.remaining_budget:
-            raise ValidationError({'amount': 'This expense exceeds the remaining budget for this category.'})
+            raise ValidationError({'amount': 'Set a budget before adding an expense.'})
 
     class Meta:
         ordering = ['-date', '-created_at']
@@ -155,29 +219,11 @@ class Income(models.Model):
     class Meta:
         ordering = ['-date']
 
-class MonthlyBudget(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-    income = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    savings_target = models.DecimalField(max_digits=5, decimal_places=2, default=20)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return f"{self.user.username}'s Monthly Budget"
-
-    @property
-    def target_expenses(self):
-        """Calculate target expenses based on income and savings target"""
-        if self.income > 0:
-            return self.income * (1 - self.savings_target / 100)
-        return 0
-
 @receiver(post_save, sender=User)
 def create_default_categories(sender, instance, created, **kwargs):
     if created:
         for category_name, color in DEFAULT_CATEGORIES.items():
             Category.objects.create(
-                user=instance,
                 name=category_name,
                 color=color,
                 icon=DEFAULT_CATEGORY_ICONS.get(category_name, 'receipt')

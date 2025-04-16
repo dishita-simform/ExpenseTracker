@@ -32,7 +32,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     
     # Budget app URLs
-    path('', include('budget.urls')),
+    path('api/', include('budget.urls')),
     
     # Web Authentication
     path('accounts/login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),

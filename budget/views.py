@@ -1,6 +1,6 @@
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
-from .models import Expense, Category, MonthlyBudget, Budget, Income, IncomeSource, CATEGORIES
+from .models import Expense, Category, MonthlyBudget, Budget, Income, IncomeSource, CategoryBudget, CATEGORIES
 from .serializers import ExpenseSerializer, CategorySerializer
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -52,12 +52,7 @@ User = get_user_model()
 class CategoryViewSet(viewsets.ModelViewSet):
     serializer_class = CategorySerializer
     permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return Category.objects.filter(user=self.request.user)
-
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+    queryset = Category.objects.all()
 
 class ExpenseViewSet(viewsets.ModelViewSet):
     serializer_class = ExpenseSerializer
@@ -104,9 +99,26 @@ def expense_list(request):
     years = range(current_year - 5, current_year + 1)  # Last 5 years
     months = [(i, calendar.month_name[i]) for i in range(1, 13)]
 
-    # Get categories with budget and spent information
-    categories = Category.objects.filter(user=request.user)
+    # Get categories and calculate spent amounts
+    categories = Category.objects.all()
     categories_dict = {}
+    
+    # Get monthly budget for the selected month
+    monthly_budget = MonthlyBudget.objects.filter(
+        user=request.user,
+        year=selected_year,
+        month=selected_month
+    ).first()
+    
+    # Get category budgets for the month
+    if monthly_budget:
+        category_budgets = CategoryBudget.objects.filter(
+            monthly_budget=monthly_budget
+        ).select_related('category')
+        budget_dict = {cb.category_id: cb for cb in category_budgets}
+    else:
+        budget_dict = {}
+
     for category in categories:
         spent = Expense.objects.filter(
             user=request.user,
@@ -114,7 +126,15 @@ def expense_list(request):
             date__month=selected_month,
             date__year=selected_year
         ).aggregate(total=Sum('amount'))['total'] or 0
+        
+        # Get budget from CategoryBudget if it exists
+        if category.id in budget_dict:
+            category.budget = budget_dict[category.id].amount
+        else:
+            category.budget = 0
+            
         category.spent = spent
+        category.remaining = category.budget - spent
         categories_dict[category.id] = category
 
     # Filter expenses by selected year and month
@@ -128,6 +148,8 @@ def expense_list(request):
     for expense in expenses:
         if expense.category_id in categories_dict:
             expense.category.spent = categories_dict[expense.category_id].spent
+            expense.category.budget = categories_dict[expense.category_id].budget
+            expense.category.remaining = categories_dict[expense.category_id].remaining
 
     # Calculate total
     total = expenses.aggregate(total=Sum('amount'))['total'] or 0
@@ -147,75 +169,68 @@ def expense_list(request):
 @login_required
 def add_expense(request):
     if request.method == 'POST':
-        form = ExpenseForm(request.POST, user=request.user)
+        form = ExpenseForm(request.POST)
         if form.is_valid():
             expense = form.save(commit=False)
             expense.user = request.user
-            try:
-                expense.save()
-                messages.success(request, 'Expense added successfully!')
-                return redirect('expense_list')
-            except Exception as e:
-                messages.error(request, f'Error saving expense: {str(e)}')
+            expense.save()
+            messages.success(request, 'Expense added successfully!')
+            return redirect('expense_list')
         else:
             messages.error(request, 'Please correct the errors below.')
     else:
-        # Initialize form with today's date
-        form = ExpenseForm(user=request.user, initial={'date': timezone.now().date()})
+        form = ExpenseForm()
 
     context = {
         'form': form,
-        'expense': None,
-        'today': timezone.now().date().isoformat()
+        'today': timezone.now().date().isoformat(),
+        'expense': None,  # Explicitly set to None for "Add Expense"
     }
     return render(request, 'budget/expense_form.html', context)
 
 @login_required
 def edit_expense(request, expense_id):
-    """
-    View for editing an expense entry.
-    """
+    # Fetch the expense or return a 404 if not found
     expense = get_object_or_404(Expense, id=expense_id, user=request.user)
-    
+
     if request.method == 'POST':
-        category_id = request.POST.get('category')
-        amount = request.POST.get('amount')
-        description = request.POST.get('description', '')
-        date_str = request.POST.get('date')
-        
-        try:
-            # Parse the date string to a date object
-            date = datetime.strptime(date_str, '%Y-%m-%d').date()
-            
-            # Check if the date is in the future
-            current_date = timezone.now().date()
-            if date > current_date:
-                raise ValueError('Expense date cannot be in the future.')
-            
-            # Get the category
-            category = Category.objects.get(id=category_id, user=request.user)
-            
-            # Update the expense record
-            expense.category = category
-            expense.amount = amount
-            expense.description = description
-            expense.date = date
-            expense.save()
-            
-            messages.success(request, 'Expense updated successfully!')
-            return redirect('expense_list')
-            
-        except Exception as e:
-            messages.error(request, f'Error updating expense: {str(e)}')
-            return redirect('expense_list')
-    
-    # For GET request, render the edit form
-    categories = Category.objects.filter(user=request.user)
-    return render(request, 'budget/expense_form.html', {
+        # Bind the form with POST data and the existing expense instance
+        form = ExpenseForm(request.POST, instance=expense)
+        if form.is_valid():
+            try:
+                # Save the updated expense
+                form.save()
+                messages.success(request, 'Expense updated successfully!')
+                return redirect('expense_list')
+            except Exception as e:
+                messages.error(request, f'Error updating expense: {str(e)}')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        # Pre-fill the form with the existing expense data
+        form = ExpenseForm(instance=expense)
+
+    # Fetch all categories and annotate them with budget information
+    categories = Category.objects.all()
+    current_year = timezone.now().year
+    current_month = timezone.now().month
+    category_budgets = CategoryBudget.objects.filter(
+        monthly_budget__year=current_year,
+        monthly_budget__month=current_month
+    ).select_related('category')
+    budget_dict = {cb.category_id: cb.amount for cb in category_budgets}
+
+    for category in categories:
+        category.budget = budget_dict.get(category.id, 0)
+
+    # Prepare the context for rendering the template
+    context = {
+        'form': form,
         'expense': expense,
-        'form': ExpenseForm(instance=expense, user=request.user),
-        'today': timezone.now().date()
-    })
+        'today': timezone.now().date().isoformat(),
+        'categories': categories,
+    }
+    return render(request, 'budget/expense_form.html', context)
 
 @login_required
 def delete_expense(request, expense_id):
@@ -231,169 +246,100 @@ def delete_expense(request, expense_id):
     
     return render(request, 'budget/expense_confirm_delete.html', {'expense': expense})
 
+category_colors = {
+    'Groceries': '#E63946',       # Rich Red
+    'Rent': '#F77F00',            # Deep Orange
+    'Utilities': '#FFD166',       # Amber
+    'Transportation': '#06D6A0',  # Turquoise Green
+    'Entertainment': '#118AB2',   # Cool Blue
+    'Healthcare': '#9B5DE5',      # Vivid Purple
+    'Shopping': '#F72585',        # Hot Pink
+    'Dining': '#FF6D00',          # Bright Orange
+    'Education': '#43AA8B',       # Teal Green
+    'Insurance': '#EF476F',       # Watermelon Red
+    'Savings': '#073B4C',         # Deep Navy
+    'Investments': '#3A86FF',     # Bold Blue
+    'Bills': '#8338EC',           # Electric Violet
+    'Personal Care': '#FF9F1C',   # Sunset Orange
+    'Home': '#2EC4B6',            # Aqua Blue
+    'Travel': '#5C6BC0',          # Indigo
+    'Fitness': '#00BFA6',         # Tropical Green
+    'Electronics': '#B388EB',     # Soft Purple
+    'Other': '#FF5C8A'            # Coral Pink
+}
+
 @login_required
 def dashboard(request):
-    # Get total balance
-    total_income = Income.objects.filter(user=request.user).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-    total_expenses = Expense.objects.filter(user=request.user).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-    total_balance = total_income - total_expenses
-    total_savings = total_balance
-
-    # Get selected month and year from request or default to current month
+    # Get selected month and year from request or default to current
     selected_month = request.GET.get('month', timezone.now().month)
     selected_year = request.GET.get('year', timezone.now().year)
-    
-    # Convert to integers
+
     try:
         selected_month = int(selected_month)
         selected_year = int(selected_year)
     except (ValueError, TypeError):
         selected_month = timezone.now().month
         selected_year = timezone.now().year
-    
-    # Get all available years
+
+    # Fetch and aggregate expense data by category
+    expenses = Expense.objects.filter(
+        user=request.user,
+        date__year=selected_year,
+        date__month=selected_month
+    ).values('category__name').annotate(
+        total_spent=Sum('amount')
+    )
+
+    # Prepare data for the chart
+    expense_data = []
+    for expense in expenses:
+        category_name = expense['category__name']
+        total_spent = expense['total_spent']
+        expense_data.append({
+            'name': category_name,
+            'spent': float(total_spent),
+            'color': category_colors.get(category_name, '#FF6384')  # Default color if not set
+        })
+
+    # Fetch total income, expenses, and savings from the database
+    total_income = Income.objects.filter(user=request.user).aggregate(total=Sum('amount'))['total'] or 0
+
+    # Fetch total savings from the database (category-based savings)
+    savings_category = Category.objects.filter(name='Savings').first()
+    total_savings = Expense.objects.filter(user=request.user, category=savings_category).aggregate(total=Sum('amount'))['total'] or 0
+
+    # Calculate total expenses excluding savings
+    total_expenses = Expense.objects.filter(user=request.user).exclude(category=savings_category).aggregate(total=Sum('amount'))['total'] or 0
+
+    # Ensure available years and month names are passed to the context
     available_years = sorted(set(exp.date.year for exp in Expense.objects.filter(user=request.user)), reverse=True)
     if not available_years:
         available_years = [timezone.now().year]
-    
-    # Create month names for dropdown
+
     month_names = [
         (1, 'January'), (2, 'February'), (3, 'March'), (4, 'April'),
         (5, 'May'), (6, 'June'), (7, 'July'), (8, 'August'),
         (9, 'September'), (10, 'October'), (11, 'November'), (12, 'December')
     ]
 
-    # Get all transactions and combine them
-    expenses = list(Expense.objects.filter(
-        user=request.user,
-        date__month=selected_month,
-        date__year=selected_year
-    ).values(
-        'id', 'category__name', 'category__icon', 'category__color',
-        'description', 'amount', 'date'
-    ).order_by('-date', '-id'))
-    
-    incomes = list(Income.objects.filter(
-        user=request.user,
-        date__month=selected_month,
-        date__year=selected_year
-    ).values(
-        'id', 'source__name', 'description', 'amount', 'date'
-    ).order_by('-date', '-id'))
-
-    # Combine and sort transactions
-    recent_transactions = []
-    for expense in expenses:
-        recent_transactions.append({
-            'id': expense['id'],
-            'category': {
-                'name': expense['category__name'],
-                'icon': expense['category__icon'],
-                'color': expense['category__color']
-            },
-            'description': expense['description'],
-            'amount': -expense['amount'],  # Negative for expenses
-            'date': expense['date'],
-            'type': 'expense'
-        })
-
-    for income in incomes:
-        recent_transactions.append({
-            'id': income['id'],
-            'category': {
-                'name': income['source__name'],
-                'icon': 'money-bill-wave',
-                'color': 'success'
-            },
-            'description': income['description'] or income['source__name'],
-            'amount': income['amount'],
-            'date': income['date'],
-            'type': 'income'
-        })
-
-    # Sort combined transactions by date and limit to 3
-    recent_transactions.sort(key=lambda x: (x['date'], x['id']), reverse=True)
-    recent_transactions = recent_transactions[:3]
-
-    # Define color mapping for each category
-    category_colors = {
-        'Rent': '#4B0082',        # Indigo
-        'Food': '#32CD32',        # Lime Green
-        'Travel': '#1E90FF',      # Dodger Blue
-        'Bills': '#DC143C',       # Crimson
-        'Entertainment': '#FF69B4',# Hot Pink
-        'Shopping': '#FF4500',    # Orange Red
-        'Healthcare': '#FF6347',   # Tomato
-        'Education': '#6A5ACD',   # Slate Blue
-        'Transportation': '#FFD700',# Gold
-        'Utilities': '#00CED1',   # Dark Turquoise
-        'Insurance': '#8A2BE2',   # Blue Violet
-        'Savings': '#20B2AA',     # Light Sea Green
-        'Investment': '#FF8C00',  # Dark Orange
-        'Gifts': '#DA70D6',      # Orchid
-        'Fitness': '#40E0D0',    # Turquoise
-        'Pet': '#FF69B4',        # Hot Pink
-        'Home': '#4B0082',       # Indigo
-        'Personal Care': '#32CD32',# Lime Green
-        'Other': '#6c757d',      # Gray
-    }
-    
-    # Get budget data for pie chart
-    categories = Category.objects.filter(user=request.user)
-    budget_data = []
-    
-    for category in categories:
-        spent = Expense.objects.filter(
-            user=request.user,
-            category=category,
-            date__month=selected_month,
-            date__year=selected_year
-        ).aggregate(total=Sum('amount'))['total'] or 0
-        
-        if spent > 0:  # Only include categories with expenses
-            budget_data.append({
-                'name': category.name,
-                'spent': float(spent),
-                'color': category_colors.get(category.name, '#6c757d'),  # Use mapped color or default to gray
-                'icon': category.icon
-            })
-
-    # Get categories and income sources for the add transaction form
-    expense_categories = Category.objects.filter(user=request.user)
-    income_sources = IncomeSource.objects.filter(user=request.user)
-
-    # Calculate totals for the selected month
-    total_income = Income.objects.filter(
-        user=request.user,
-        date__month=selected_month,
-        date__year=selected_year
-    ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-    
-    total_expenses = Expense.objects.filter(
-        user=request.user,
-        date__month=selected_month,
-        date__year=selected_year
-    ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-    
-    total_balance = total_income - total_expenses
-    total_savings = total_balance if total_balance > 0 else Decimal('0.00')
+    # Annotate categories with budget information
+    categories = Category.objects.annotate(
+        budget=Sum('categorybudget__amount', filter=Q(categorybudget__monthly_budget__year=selected_year, categorybudget__monthly_budget__month=selected_month))
+    ).filter(budget__gt=0).order_by('name')
 
     context = {
-        'total_balance': total_balance,
-        'total_income': total_income,
+        'expense_data': json.dumps(expense_data),
         'total_expenses': total_expenses,
+        'total_income': total_income,
         'total_savings': total_savings,
-        'recent_transactions': recent_transactions,
-        'budget_data': json.dumps(budget_data),  # Convert to JSON for JavaScript
-        'expense_categories': expense_categories,
-        'income_sources': income_sources,
-        'today': timezone.now().date().isoformat(),  # Add today's date for form validation
         'selected_month': selected_month,
         'selected_year': selected_year,
+        'selected_month_name': calendar.month_name[selected_month],
+        'categories': categories,
         'available_years': available_years,
         'month_names': month_names,
-        'selected_month_name': dict(month_names)[selected_month]
     }
+
     return render(request, 'budget/dashboard.html', context)
 
 @login_required
@@ -452,119 +398,66 @@ def add_income(request):
     if request.method == 'POST':
         source_name = request.POST.get('source')
         amount = request.POST.get('amount')
-        description = request.POST.get('description', '')
         date_str = request.POST.get('date')
-        
+
         try:
             # Parse the date string to a date object
             date = datetime.strptime(date_str, '%Y-%m-%d').date()
-            
+
             # Check if the date is in the future
             current_date = timezone.now().date()
             if date > current_date:
                 raise ValueError('Income date cannot be in the future.')
-            
+
             # Create or get the income source
             source, created = IncomeSource.objects.get_or_create(
                 user=request.user,
                 name=source_name,
                 defaults={'icon': 'money-bill-wave'}
             )
-            
+
             # Create the income record
-            income = Income.objects.create(
+            Income.objects.create(
                 user=request.user,
                 source=source,
                 amount=amount,
-                description=description,
                 date=date
             )
 
             messages.success(request, 'Income added successfully!')
-
-            # If this is an AJAX request, return JSON response
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({
-                    'success': True,
-                    'message': 'Income added successfully',
-                    'transaction': {
-                        'id': income.id,
-                        'type': 'income',
-                        'category': {
-                            'name': source.name,
-                            'icon': source.icon,
-                            'color': 'success'
-                        },
-                        'description': description or source.name,
-                        'amount': float(amount),
-                        'date': date.strftime('%b %d, %Y')
-                    }
-                })
-
             return redirect('income_list')
-            
+
         except Exception as e:
-            error_message = str(e)
-            messages.error(request, f'Error adding income: {error_message}')
-            
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({
-                    'success': False,
-                    'error': error_message
-                }, status=400)
-            
+            messages.error(request, f'Error adding income: {str(e)}')
             return redirect('income_list')
-    
-    return redirect('income_list')
+
+    return render(request, 'budget/income_form.html')
 
 @login_required
 def budget_settings(request):
-    # Get or create categories for the user
-    categories = Category.objects.filter(user=request.user)
-    print(categories)
-    existing_category_names = [cat.name for cat in categories]
-    
-    # Create missing categories from the predefined list
-    for category_name, _ in CATEGORIES:
-        if category_name not in existing_category_names:
-            # Map category names to icons
-            icon_map = {
-                'Rent': 'home',
-                'Food': 'utensils',
-                'Travel': 'plane',
-                'Bills': 'file-invoice',
-                'Entertainment': 'gamepad',
-                'Shopping': 'shopping-cart',
-                'Healthcare': 'hospital',
-                'Education': 'graduation-cap',
-                'Transportation': 'car',
-                'Utilities': 'bolt',
-                'Insurance': 'shield-alt',
-                'Savings': 'piggy-bank',
-                'Investment': 'chart-line',
-                'Gifts': 'gift',
-                'Fitness': 'dumbbell',
-                'Pet': 'paw',
-                'Home': 'home',
-                'Personal Care': 'spa',
-                'Other': 'ellipsis-h',
-            }
-            
-            Category.objects.create(
-                user=request.user,
-                name=category_name,
-                icon=icon_map.get(category_name, 'ellipsis-h'),
-                budget=0
-            )
+    # Get all categories
+    categories = Category.objects.all()
     
     # Get current month and year
     current_date = timezone.now()
     current_month = current_date.month
     current_year = current_date.year
     
-    # Refresh categories after creating any missing ones
-    categories = Category.objects.filter(user=request.user)
-    monthly_budget = MonthlyBudget.objects.filter(user=request.user).first()
+    # Get or create monthly budget for current month
+    monthly_budget, created = MonthlyBudget.objects.get_or_create(
+        user=request.user,
+        year=current_year,
+        month=current_month,
+        defaults={'total_budget': 0}
+    )
+    
+    # Get existing category budgets for current month
+    category_budgets = CategoryBudget.objects.filter(
+        monthly_budget=monthly_budget
+    ).select_related('category')
+    
+    # Create a dictionary of category budgets
+    budget_dict = {cb.category_id: cb for cb in category_budgets}
     
     # Calculate spent amount for each category for the current month only
     for category in categories:
@@ -575,7 +468,14 @@ def budget_settings(request):
             date__year=current_year
         ).aggregate(total=Sum('amount'))['total'] or 0
         category.spent = spent
-        category.remaining = category.budget - spent if category.budget else 0
+        
+        # Get budget from CategoryBudget if it exists
+        if category.id in budget_dict:
+            category.budget = budget_dict[category.id].amount
+        else:
+            category.budget = 0
+            
+        category.remaining = category.budget - spent
     
     # Prepare categories data for JavaScript
     categories_data = []
@@ -583,9 +483,9 @@ def budget_settings(request):
         categories_data.append({
             'id': category.id,
             'name': category.name,
-            'budget': float(category.budget) if category.budget else 0,
-            'spent': float(category.spent) if category.spent else 0,
-            'remaining': float(category.remaining) if category.remaining else 0,
+            'budget': float(category.budget),
+            'spent': float(category.spent),
+            'remaining': float(category.remaining),
             'icon': category.icon
         })
     
@@ -604,7 +504,11 @@ def update_monthly_budget(request):
     if request.method == 'POST':
         # Update monthly budget if provided
         if 'monthly_income' in request.POST or 'savings_target' in request.POST:
-            monthly_budget, created = MonthlyBudget.objects.get_or_create(user=request.user)
+            monthly_budget, created = MonthlyBudget.objects.get_or_create(
+                user=request.user,
+                year=timezone.now().year,
+                month=timezone.now().month
+            )
             monthly_budget.income = Decimal(request.POST.get('monthly_income', 0))
             monthly_budget.savings_target = Decimal(request.POST.get('savings_target', 20))
             monthly_budget.save()
@@ -616,9 +520,13 @@ def update_monthly_budget(request):
             budget_limit = Decimal(request.POST.get('budget_limit', 0))
             
             try:
-                category = Category.objects.get(id=category_id, user=request.user)
-                category.budget = budget_limit
-                category.save()
+                category = Category.objects.get(id=category_id)
+                monthly_budget, created = MonthlyBudget.objects.get_or_create(
+                    user=request.user,
+                    year=timezone.now().year,
+                    month=timezone.now().month
+                )
+                monthly_budget.set_category_budget(category, budget_limit)
                 messages.success(request, f'Budget for {category.name} updated successfully.')
             except Category.DoesNotExist:
                 messages.error(request, 'Category not found.')
@@ -629,7 +537,7 @@ def update_monthly_budget(request):
 
 @login_required
 def category_list(request):
-    categories = Category.objects.filter(user=request.user)
+    categories = Category.objects.all()
     return render(request, 'budget/category_list.html', {'categories': categories})
 
 @login_required
@@ -639,9 +547,24 @@ def category_budget(request, category_id):
         return JsonResponse({'error': 'Invalid request'}, status=400)
     
     try:
-        category = Category.objects.get(id=category_id, user=request.user)
+        category = Category.objects.get(id=category_id)
         current_month = timezone.now().month
         current_year = timezone.now().year
+        
+        # Get monthly budget for current month
+        monthly_budget = MonthlyBudget.objects.filter(
+            user=request.user,
+            year=current_year,
+            month=current_month
+        ).first()
+        
+        # Get category budget if it exists
+        category_budget = None
+        if monthly_budget:
+            category_budget = CategoryBudget.objects.filter(
+                monthly_budget=monthly_budget,
+                category=category
+            ).first()
         
         # Get total spent this month
         spent = Expense.objects.filter(
@@ -651,10 +574,12 @@ def category_budget(request, category_id):
             date__year=current_year
         ).aggregate(total=Sum('amount'))['total'] or 0
         
+        budget_amount = category_budget.amount if category_budget else 0
+        
         return JsonResponse({
-            'budget': float(category.budget) if category.budget else None,
+            'budget': float(budget_amount),
             'spent': float(spent),
-            'remaining': float(category.budget - spent) if category.budget else None
+            'remaining': float(budget_amount - spent)
         })
     except Category.DoesNotExist:
         return JsonResponse({'error': 'Category not found'}, status=404)
@@ -662,108 +587,9 @@ def category_budget(request, category_id):
         return JsonResponse({'error': str(e)}, status=500)
 
 @login_required
-def add_category(request):
-    if request.method == 'POST':
-        name = request.POST.get('name')
-        color = request.POST.get('color')
-        icon = request.POST.get('icon')
-        description = request.POST.get('description')
-        budget = request.POST.get('budget', 0)
-
-        if name:
-            category = Category.objects.create(
-                user=request.user,
-                name=name,
-                color=color or DEFAULT_CATEGORIES.get(name, 'primary'),
-                icon=icon or DEFAULT_CATEGORY_ICONS.get(name, 'receipt'),
-                description=description,
-                budget=budget
-            )
-            messages.success(request, f'Category "{name}" created successfully!')
-            return redirect('category_list')
-        else:
-            messages.error(request, 'Category name is required.')
-    
-    return render(request, 'budget/add_category.html', {
-        'default_colors': DEFAULT_CATEGORIES,
-        'default_icons': DEFAULT_CATEGORY_ICONS
-    })
-
-@login_required
-def edit_category(request, category_id):
-    category = get_object_or_404(Category, id=category_id, user=request.user)
-    
-    if request.method == 'POST':
-        name = request.POST.get('name')
-        color = request.POST.get('color')
-        icon = request.POST.get('icon')
-        description = request.POST.get('description')
-        budget = request.POST.get('budget')
-        is_active = request.POST.get('is_active') == 'on'
-
-        if name:
-            category.name = name
-            category.color = color
-            category.icon = icon
-            category.description = description
-            category.budget = budget
-            category.is_active = is_active
-            category.save()
-            messages.success(request, f'Category "{name}" updated successfully!')
-            return redirect('category_list')
-        else:
-            messages.error(request, 'Category name is required.')
-    
-    return render(request, 'budget/edit_category.html', {
-        'category': category,
-        'default_colors': DEFAULT_CATEGORIES,
-        'default_icons': DEFAULT_CATEGORY_ICONS
-    })
-
-@login_required
-def delete_category(request, category_id):
-    category = get_object_or_404(Category, id=category_id, user=request.user)
-    
-    if request.method == 'POST':
-        name = category.name
-        category.delete()
-        messages.success(request, f'Category "{name}" deleted successfully!')
-        return redirect('category_list')
-    
-    return render(request, 'budget/delete_category.html', {'category': category})
-
-@login_required
 def income_source_list(request):
     sources = IncomeSource.objects.filter(user=request.user)
     return render(request, 'budget/income_source_list.html', {'sources': sources})
-
-@login_required
-def add_income_source(request):
-    if request.method == 'POST':
-        name = request.POST.get('name')
-        icon = request.POST.get('icon')
-        IncomeSource.objects.create(user=request.user, name=name, icon=icon)
-        messages.success(request, 'Income source added successfully!')
-        return redirect('income_source_list')
-    return redirect('income_source_list')
-
-@login_required
-def edit_income_source(request, source_id):
-    source = get_object_or_404(IncomeSource, id=source_id, user=request.user)
-    if request.method == 'POST':
-        source.name = request.POST.get('name')
-        source.icon = request.POST.get('icon')
-        source.save()
-        messages.success(request, 'Income source updated successfully!')
-        return redirect('income_source_list')
-    return render(request, 'budget/edit_income_source.html', {'source': source})
-
-@login_required
-def delete_income_source(request, source_id):
-    source = get_object_or_404(IncomeSource, id=source_id, user=request.user)
-    source.delete()
-    messages.success(request, 'Income source deleted successfully!')
-    return redirect('income_source_list')
 
 @login_required
 def reports(request):
@@ -816,17 +642,19 @@ def reports(request):
         income_by_source[source_name] += inc.amount
     
     context = {
-        'start_date': start_date,
-        'end_date': end_date,
-        'expenses': expenses,
-        'income': income,
-        'total_expenses': total_expenses,
-        'total_income': total_income,
-        'net_income': net_income,
-        'expenses_by_category': expenses_by_category,
-        'income_by_source': income_by_source,
-    }
-    
+    'start_date': start_date,
+    'end_date': end_date,
+    'expenses': expenses,
+    'income': income,
+    'total_expenses': total_expenses,
+    'total_income': total_income,
+    'net_income': net_income,
+    'expenses_by_category': expenses_by_category,
+    'income_by_source': income_by_source,
+    'average_daily_expenses': total_expenses / ((end_date - start_date).days + 1),
+    'highest_expense': expenses.order_by('-amount').first(),
+    'highest_income': income.order_by('-amount').first(),
+}
     return render(request, 'budget/reports.html', context)
 
 @login_required
@@ -914,7 +742,7 @@ def delete_transaction(request, transaction_id):
 @login_required
 def budget_history(request):
     # Get all available months and years from expenses
-    available_months = Expense.objects.filter(user=request.user).dates('date', 'month').order_by('-date')
+    available_months = Expense.objects.filter().dates('date', 'month').order_by('-date')
     
     # Get selected month and year from request or default to current month
     selected_month = request.GET.get('month', timezone.now().month)
@@ -928,9 +756,13 @@ def budget_history(request):
         selected_month = timezone.now().month
         selected_year = timezone.now().year
     
-    # Get categories for the user
-    categories = Category.objects.filter(user=request.user)
-    
+    # Get categories (user filter removed as Category does not have a user field)
+    categories = Category.objects.all()
+
+    # Dynamically add a budget attribute to each category
+    for category in categories:
+        category.budget = 0  # Default budget value
+
     # Calculate spent amount for each category for the selected month
     for category in categories:
         spent = Expense.objects.filter(
@@ -1311,7 +1143,7 @@ def custom_password_reset(request):
                 
                 # Create the reset URL
                 reset_url = request.build_absolute_uri(
-                    reverse('password_reset_confirm', kwargs={'uidb64': uid, 'token': token})
+                    reverse('password_reset_confirm', kwargs={'uidb64':uid, 'token':token})
                 )
                 
                 # Send email directly
@@ -1377,13 +1209,13 @@ def export_report(request):
     """
     Export budget report for the selected month and year as a PDF file.
     """
-    # Get month and year from request
-    month = request.GET.get('month', datetime.now().month)
-    year = request.GET.get('year', datetime.now().year)
-    
-    # Convert to integers
-    month = int(month)
-    year = int(year)
+    # Get month and year from request or default to current month and year
+    try:
+        month = int(request.GET.get('month', datetime.now().month))
+        year = int(request.GET.get('year', datetime.now().year))
+    except ValueError:
+        month = datetime.now().month
+        year = datetime.now().year
     
     # Get month name
     month_name = datetime(year, month, 1).strftime('%B')
@@ -1739,3 +1571,115 @@ def delete_income(request, income_id):
         return redirect('income_list')
     
     return render(request, 'budget/delete_income.html', {'income': income})
+
+@login_required
+def manage_category_budgets(request):
+    current_date = timezone.now().date()
+    current_year = current_date.year
+    current_month = current_date.month
+
+    # Get or create monthly budget for current month
+    monthly_budget, created = MonthlyBudget.objects.get_or_create(
+        user=request.user,
+        year=current_year,
+        month=current_month,
+        defaults={'total_budget': 0}
+    )
+
+    if request.method == 'POST':
+        category_id = request.POST.get('category')
+        budget_amount = request.POST.get('amount')
+        
+        try:
+            category = Category.objects.get(id=category_id)
+            amount = Decimal(budget_amount)
+            if amount >= 0:
+                monthly_budget.set_category_budget(category, amount)
+                messages.success(request, f'Budget for {category.name} has been updated.')
+            else:
+                messages.error(request, 'Budget amount must be positive.')
+        except (Category.DoesNotExist, ValueError, TypeError):
+            messages.error(request, 'Invalid category or amount.')
+        
+        return redirect('manage_category_budgets')
+
+    # Get all categories
+    all_categories = Category.objects.all()
+    
+    # Get existing category budgets for current month
+    category_budgets = CategoryBudget.objects.filter(
+        monthly_budget=monthly_budget
+    ).select_related('category')
+    
+    # Create a dictionary of category budgets
+    budget_dict = {cb.category_id: cb for cb in category_budgets}
+    
+    # Prepare categories with their budget information
+    categories_with_budgets = []
+    categories_without_budgets = []
+    
+    for category in all_categories:
+        if category.id in budget_dict:
+            categories_with_budgets.append({
+                'category': category,
+                'budget': budget_dict[category.id],
+                'spent': budget_dict[category.id].total_spent,
+                'remaining': budget_dict[category.id].remaining_budget,
+                'percentage': budget_dict[category.id].budget_percentage
+            })
+        else:
+            categories_without_budgets.append(category)
+
+    context = {
+        'monthly_budget': monthly_budget,
+        'categories_with_budgets': sorted(categories_with_budgets, key=lambda x: x['category'].name),
+        'categories_without_budgets': categories_without_budgets,
+        'current_month': current_date.strftime('%B'),
+        'current_year': current_year,
+        'total_budget': sum(cb.amount for cb in category_budgets),
+        'total_spent': monthly_budget.total_spent,
+        'total_remaining': monthly_budget.remaining_budget
+    }
+    
+    return render(request, 'budget/manage_category_budgets.html', context)
+
+@login_required
+def reset_category_budget(request, category_id):
+    if request.method == 'POST':
+        try:
+            current_date = timezone.now().date()
+            monthly_budget = MonthlyBudget.objects.get(
+                user=request.user,
+                year=current_date.year,
+                month=current_date.month
+            )
+            category = Category.objects.get(id=category_id)
+            
+            # Delete the category budget for current month
+            CategoryBudget.objects.filter(
+                monthly_budget=monthly_budget,
+                category=category
+            ).delete()
+            
+            messages.success(request, f'Budget for {category.name} has been reset.')
+        except (MonthlyBudget.DoesNotExist, Category.DoesNotExist):
+            messages.error(request, 'Invalid category or monthly budget.')
+    
+    return redirect('manage_category_budgets')
+
+def check_budget(request, category_id):
+    try:
+        category = Category.objects.get(id=category_id)
+        budget_set = category.budget is not None
+        return JsonResponse({'budget_set': budget_set})
+    except Category.DoesNotExist:
+        return JsonResponse({'budget_set': False, 'error': 'Category does not exist.'}, status=404)
+
+def get_category_budgets(request):
+    # Fetch all category budgets
+    category_budgets = CategoryBudget.objects.all()
+    
+    # Create a dictionary with category IDs and their budget status
+    budget_data = {str(budget.category.id): True for budget in category_budgets}
+
+    return JsonResponse(budget_data)
