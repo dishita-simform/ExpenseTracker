@@ -82,28 +82,30 @@
                                         <td>₹{{ category.spent|default:0 }}</td>
                                         <td>₹{{ category.remaining|default:0 }}</td>
                                         <td>
-                                            <div class="progress" style="position: relative;">
-                                                {% with percentage=category.spent|div:category.budget|mul:100 %}
-                                                    <div class="progress-bar 
-                                                                {% if percentage > 100 %}
-                                                                    bg-danger
-                                                                {% elif percentage > 80 %}
-                                                                    bg-warning
-                                                                {% else %}
-                                                                    bg-success
-                                                                {% endif %}"
-                                                         role="progressbar"
-                                                         aria-valuenow="{{ percentage }}"
-                                                         aria-valuemin="0"
-                                                         aria-valuemax="100"
-                                                         style="width: {{ percentage|floatformat:0|default:0 }}%;">
-                                                    </div>
-                                                    <span class="progress-text"
-                                                          style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); color: #6b7280;font-size: var(--bs-body-font-size); font-family: 'Poppins', sans-serif;">
-                                                        {{ percentage|floatformat:0|default:0 }}%
-                                                    </span>
+                                            <div style="display: flex; align-items: center;">
+                                                <div class="progress" style="flex: 1; height: 20px;">
+                                                    {% with percentage=category.spent|div:category.budget|mul:100 %}
+                                                        <div class="progress-bar 
+                                                                    {% if percentage > 80 %}
+                                                                        bg-danger
+                                                                    {% elif percentage > 50 %}
+                                                                        bg-warning
+                                                                    {% else %}
+                                                                        bg-success
+                                                                    {% endif %}"
+                                                             role="progressbar"
+                                                             aria-valuenow="{{ percentage }}"
+                                                             aria-valuemin="0"
+                                                             aria-valuemax="100"
+                                                             style="width: {{ percentage|floatformat:0|default:0 }}%;">
+                                                        </div>
+                                                </div>
+                                                <span class="progress-text"
+                                                      style="margin-left: 10px; color: #6b7280; font-size: var(--bs-body-font-size); font-family: 'Poppins', sans-serif;">
+                                                    {{ percentage|floatformat:0|default:0 }}%
+                                                </span>
                                                 {% endwith %}
-                                            </div>                                            
+                                            </div>                                                                              
                                         </td>
                                     </tr>
                                 {% endif %}
