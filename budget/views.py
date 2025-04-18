@@ -5,19 +5,18 @@ from .serializers import ExpenseSerializer, CategorySerializer
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.db.models import Q, Sum, F, Count, Avg
-from django.db.models.functions import TruncMonth, ExtractMonth, ExtractYear
+from django.db.models import Q, Sum
 import json
 from datetime import datetime, timedelta, date
 from django.utils import timezone
 from decimal import Decimal
-from .forms import ExpenseForm, IncomeForm, BudgetForm, RegisterForm
+from .forms import ExpenseForm, RegisterForm
 from django.contrib.auth import logout
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from .constants import CATEGORIES, DEFAULT_CATEGORIES, DEFAULT_CATEGORY_ICONS
 import calendar
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from rest_framework import status
@@ -27,13 +26,9 @@ from rest_framework.permissions import AllowAny
 from django.db import connection
 from django.contrib.auth.forms import UserCreationForm, PasswordResetForm
 from django.urls import reverse_lazy, reverse
-from django.views.generic import CreateView, View
+from django.views.generic import CreateView
 from django.core.mail import send_mail
-import csv
 from django.http import HttpResponse
-from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment
-from openpyxl.utils import get_column_letter
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle

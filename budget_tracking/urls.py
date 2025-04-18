@@ -22,7 +22,7 @@ from django.contrib.auth import views as auth_views
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from dj_rest_auth.registration.views import VerifyEmailView, ResendEmailVerificationView
 from dj_rest_auth.views import LoginView, LogoutView, PasswordResetView, PasswordResetConfirmView
-from budget.views import dashboard, register, custom_logout, custom_password_reset
+from budget.views import register, custom_logout, custom_password_reset
 
 urlpatterns = [
      path('', include('budget.urls')),
