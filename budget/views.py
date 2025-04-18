@@ -41,6 +41,9 @@ from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from .email_utils import send_email_direct
 from django import forms
+from django.http import JsonResponse
+from .models import Transaction
+from django.views.decorators.csrf import csrf_exempt
 
 User = get_user_model()
 
@@ -172,7 +175,9 @@ def add_expense(request):
             messages.success(request, 'Expense added successfully!')
             return redirect('expense_list')
         else:
-            messages.error(request, 'Please correct the errors below.')
+            # Log form errors for debugging
+            for field, errors in form.errors.items():
+                messages.error(request, f"{field}: {', '.join(errors)}")
     else:
         form = ExpenseForm()
 
@@ -193,30 +198,41 @@ def edit_expense(request, expense_id):
         form = ExpenseForm(request.POST, instance=expense)
         if form.is_valid():
             try:
-                # Save the updated expense
-                form.save()
+                # Save the updated expense without modifying the date field
+                updated_expense = form.save(commit=False)
+                updated_expense.updated_at = timezone.now()
+                updated_expense.save()
+
                 messages.success(request, 'Expense updated successfully!')
                 return redirect('expense_list')
             except Exception as e:
                 messages.error(request, f'Error updating expense: {str(e)}')
         else:
-            messages.error(request, 'Please correct the errors below.')
+            # Log form errors for debugging
+            for field, errors in form.errors.items():
+                messages.error(request, f"{field}: {', '.join(errors)}")
     else:
         # Pre-fill the form with the existing expense data
         form = ExpenseForm(instance=expense)
 
-    # Fetch all categories and annotate them with budget information
-    categories = Category.objects.all()
-    current_year = timezone.now().year
-    current_month = timezone.now().month
-    category_budgets = CategoryBudget.objects.filter(
-        monthly_budget__year=current_year,
-        monthly_budget__month=current_month
-    ).select_related('category')
-    budget_dict = {cb.category_id: cb.amount for cb in category_budgets}
+    # Check if the user is editing the budget
+    is_editing_budget = 'budget' in request.POST and not request.POST.get('amount')
 
-    for category in categories:
-        category.budget = budget_dict.get(category.id, 0)
+    if not is_editing_budget:
+        # Fetch all categories and annotate them with budget information
+        categories = Category.objects.all()
+        current_year = timezone.now().year
+        current_month = timezone.now().month
+        category_budgets = CategoryBudget.objects.filter(
+            monthly_budget__year=current_year,
+            monthly_budget__month=current_month
+        ).select_related('category')
+        budget_dict = {cb.category_id: cb.amount for cb in category_budgets}
+
+        for category in categories:
+            category.budget = budget_dict.get(category.id, 0)
+    else:
+        categories = []
 
     # Prepare the context for rendering the template
     context = {
@@ -281,15 +297,20 @@ def dashboard(request):
         user=request.user,
         date__year=selected_year,
         date__month=selected_month
-    ).values('category__name').annotate(
-        total_spent=Sum('amount')
-    )
+    ).values('id', 'category__name', 'amount', 'description', 'date', 'category__color', 'category__icon')
+
+    # Fetch income records for the selected month and year
+    incomes = Income.objects.filter(
+        user=request.user,
+        date__year=selected_year,
+        date__month=selected_month
+    ).values('id', 'source__name', 'description', 'amount', 'date')
 
     # Prepare data for the chart
     expense_data = []
     for expense in expenses:
         category_name = expense['category__name']
-        total_spent = expense['total_spent']
+        total_spent = expense['amount']
         expense_data.append({
             'name': category_name,
             'spent': float(total_spent),
@@ -298,13 +319,8 @@ def dashboard(request):
 
     # Fetch total income, expenses, and savings from the database
     total_income = Income.objects.filter(user=request.user).aggregate(total=Sum('amount'))['total'] or 0
-
-    # Fetch total savings from the database (category-based savings)
-    savings_category = Category.objects.filter(name='Savings').first()
-    total_savings = Expense.objects.filter(user=request.user, category=savings_category).aggregate(total=Sum('amount'))['total'] or 0
-
-    # Calculate total expenses excluding savings
-    total_expenses = Expense.objects.filter(user=request.user).exclude(category=savings_category).aggregate(total=Sum('amount'))['total'] or 0
+    total_expenses = Expense.objects.filter(user=request.user).aggregate(total=Sum('amount'))['total'] or 0
+    total_savings = total_income - total_expenses
 
     # Ensure available years and month names are passed to the context
     available_years = sorted(set(exp.date.year for exp in Expense.objects.filter(user=request.user)), reverse=True)
@@ -312,7 +328,7 @@ def dashboard(request):
         available_years = [timezone.now().year]
 
     month_names = [
-        (1, 'January'), (2, 'February'), (3, 'March'), (4, 'April'),
+        (1, 'January'), (2, 'February'), (3, 'March'), (4, 'April'),                                                                                                                                                                                                                                                                                                                                                                                                                                   
         (5, 'May'), (6, 'June'), (7, 'July'), (8, 'August'),
         (9, 'September'), (10, 'October'), (11, 'November'), (12, 'December')
     ]
@@ -321,6 +337,38 @@ def dashboard(request):
     categories = Category.objects.annotate(
         budget=Sum('categorybudget__amount', filter=Q(categorybudget__monthly_budget__year=selected_year, categorybudget__monthly_budget__month=selected_month))
     ).filter(budget__gt=0).order_by('name')
+
+    # Ensure recent_transactions is passed to the context
+    recent_transactions = []
+    for expense in expenses:
+        recent_transactions.append({
+            'id': expense['id'],
+            'type': 'expense',
+            'amount': -float(expense['amount']),
+            'description': expense['description'],
+            'date': expense['date'].strftime('%b %d, %Y'),
+            'category': {
+                'name': expense['category__name'],
+                'color': expense['category__color'],
+                'icon': expense['category__icon']
+            }
+        })
+
+    for income in incomes:
+        recent_transactions.append({
+            'id': income['id'],
+            'type': 'income',
+            'amount': float(income['amount']),
+            'description': income['description'] or income['source__name'],
+            'date': income['date'].strftime('%b %d, %Y'),
+            'category': {
+                'name': income['source__name'],
+                'color': 'success',
+                'icon': 'money-bill-wave'
+            }
+        })
+
+    recent_transactions.sort(key=lambda x: datetime.strptime(x['date'], '%b %d, %Y'), reverse=True)
 
     context = {
         'expense_data': json.dumps(expense_data),
@@ -333,6 +381,7 @@ def dashboard(request):
         'categories': categories,
         'available_years': available_years,
         'month_names': month_names,
+        'recent_transactions': recent_transactions[:3],
     }
 
     return render(request, 'budget/dashboard.html', context)
@@ -426,7 +475,10 @@ def add_income(request):
             messages.error(request, f'Error adding income: {str(e)}')
             return redirect('income_list')
 
-    return render(request, 'budget/income_form.html')
+    context = {
+        'today': timezone.now().date().isoformat(),
+    }
+    return render(request, 'budget/income_form.html', context)
 
 @login_required
 def budget_settings(request):
@@ -891,7 +943,7 @@ def dashboard_data(request):
         'id', 'source__name', 'description', 'amount', 'date'
     ).order_by('-date', '-id'))
     
-    # Combine and sort transactions
+    # Combine and sort transactions by date (newest first)
     recent_transactions = []
     for expense in expenses:
         recent_transactions.append({
@@ -1511,40 +1563,40 @@ def edit_income(request, income_id):
     income = get_object_or_404(Income, id=income_id, user=request.user)
     
     if request.method == 'POST':
-        source_name = request.POST.get('source')
-        amount = request.POST.get('amount')
-        description = request.POST.get('description', '')
-        date_str = request.POST.get('date')
-        
-        try:
-            # Parse the date string to a date object
-            date = datetime.strptime(date_str, '%Y-%m-%d').date()
-            
-            # Check if the date is in the future
-            current_date = timezone.now().date()
-            if date > current_date:
-                raise ValueError('Income date cannot be in the future.')
-            
-            # Get or create the income source
-            source, created = IncomeSource.objects.get_or_create(
-                user=request.user,
-                name=source_name,
-                defaults={'icon': 'money-bill-wave'}
-            )
-            
-            # Update the income record
-            income.source = source
-            income.amount = amount
-            income.description = description
-            income.date = date
-            income.save()
-            
-            messages.success(request, 'Income updated successfully!')
-            return redirect('income_list')
-            
-        except Exception as e:
-            messages.error(request, f'Error updating income: {str(e)}')
-            return redirect('income_list')
+            source_name = request.POST.get('source')
+            amount = request.POST.get('amount')
+            description = request.POST.get('description', '')
+            date_str = request.POST.get('date')
+
+            try:
+                # Parse the date string to a date object
+                date = datetime.strptime(date_str, '%Y-%m-%d').date()
+
+                # Check if the date is in the future
+                current_date = timezone.now().date()
+                if date > current_date:
+                    raise ValueError('Income date cannot be in the future.')
+
+                # Get or create the income source
+                source, created = IncomeSource.objects.get_or_create(
+                    user=request.user,
+                    name=source_name,
+                    defaults={'icon': 'money-bill-wave'}
+                )
+
+                # Update the income record without modifying the date field
+                income.source = source
+                income.amount = amount
+                income.description = description
+                income.updated_at = timezone.now()
+                income.save()
+
+                messages.success(request, 'Income updated successfully!')
+                return redirect('income_list')
+
+            except Exception as e:
+                messages.error(request, f'Error updating income: {str(e)}')
+                return redirect('income_list')
     
     # For GET request, render the edit form
     sources = IncomeSource.objects.filter(user=request.user)
@@ -1678,4 +1730,59 @@ def get_category_budgets(request):
     # Create a dictionary with category IDs and their budget status
     budget_data = {str(budget.category.id): True for budget in category_budgets}
 
-    return JsonResponse(budget_data)
+    return JsonResponse(budget_data, safe=False)
+
+from django.http import JsonResponse
+from django.db.models import Sum
+
+@login_required
+def recent_transactions(request):
+    """
+    API endpoint to fetch recent transactions (expenses and incomes).
+    """
+    limit = int(request.GET.get('limit', 3))  # Default to 3 transactions if limit is not provided
+
+    # Fetch recent expenses
+    expenses = list(Expense.objects.filter(user=request.user)
+                    .order_by('-date', '-id')
+                    .values('id', 'amount', 'description', 'date', 'category__name', 'category__color', 'category__icon')[:limit])
+
+    # Fetch recent incomes
+    incomes = list(Income.objects.filter(user=request.user)
+                   .order_by('-date', '-id')
+                   .values('id', 'amount', 'description', 'date', 'source__name')[:limit])
+
+    # Combine and sort transactions by date (newest first)
+    transactions = []
+    for expense in expenses:
+        transactions.append({
+            'id': expense['id'],
+            'type': 'expense',
+            'amount': -float(expense['amount']),  # Negative for expenses
+            'description': expense['description'],
+            'date': expense['date'].strftime('%Y-%m-%d'),
+            'category': {
+                'name': expense['category__name'],
+                'color': expense['category__color'],
+                'icon': expense['category__icon']
+            }
+        })
+
+    for income in incomes:
+        transactions.append({
+            'id': income['id'],
+            'type': 'income',
+            'amount': float(income['amount']),
+            'description': income['description'],
+            'date': income['date'].strftime('%Y-%m-%d'),
+            'category': {
+                'name': income['source__name'],
+                'color': 'success',
+                'icon': 'money-bill-wave'
+            }
+        })
+
+    # Sort transactions by date (newest first)
+    transactions.sort(key=lambda x: x['date'], reverse=True)
+
+    return JsonResponse({'transactions': transactions[:limit]})

@@ -80,4 +80,5 @@ urlpatterns = [
     path('api/expense-trends/', expense_trends, name='expense_trends'),
     path('budget/export-report/', views.export_report, name='export_report'),
     path('test-email/', views.test_email, name='test_email'),
+    path('api/recent-transactions/', views.recent_transactions, name='recent_transactions'),
 ]

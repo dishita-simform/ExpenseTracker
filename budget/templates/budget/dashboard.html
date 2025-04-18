@@ -341,12 +341,77 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('totalIncome').textContent = `₹${income.toFixed(2)}`;
         document.getElementById('totalExpenses').textContent = `₹${expenses.toFixed(2)}`;
         document.getElementById('totalSavings').textContent = `₹${savings.toFixed(2)}`;
-    }
+    } 
 
     // Example usage of the formula
     const income = parseFloat('{{ total_income|default:0 }}');
     const expenses = parseFloat('{{ total_expenses|default:0 }}');
     updateStats(income, expenses);
+
+    // Function to fetch and update recent transactions dynamically
+    async function updateRecentTransactions() {
+        try {
+            const response = await fetch('/budget/api/recent-transactions/?limit=3'); // Adjust the API endpoint as needed
+            if (response.ok) {
+                const transactions = await response.json();
+                const transactionList = document.querySelector('.list-group');
+                transactionList.innerHTML = '';
+
+                if (transactions.length > 0) {
+                    transactions.forEach(transaction => {
+                        const transactionItem = document.createElement('div');
+                        transactionItem.className = 'list-group-item';
+                        transactionItem.innerHTML = `
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="d-flex align-items-center">
+                                    <div class="icon-circle ${transaction.type === 'expense' ? 'bg-danger' : 'bg-success'}" style="width: 40px; height: 40px; margin-right: 1rem;">
+                                        <i class="fas fa-${transaction.category.icon}"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-0">${transaction.category.name}</h6>
+                                        <small class="text-muted">${transaction.description || 'No description available'}</small>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center">
+                                    <span class="h6 mb-0 me-3 ${transaction.type === 'expense' ? 'text-danger' : 'text-success'}">
+                                        Rs. ${transaction.amount.toFixed(2)}
+                                    </span>
+                                    <div class="btn-group">
+                                        ${transaction.type === 'expense' ? `
+                                            <a href="/budget/edit-expense/${transaction.id}/" class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <a href="/budget/delete-expense/${transaction.id}/" class="btn btn-sm btn-outline-danger">
+                                                <i class="fas fa-trash"></i>
+                                            </a>
+                                        ` : `
+                                            <a href="/budget/edit-income/${transaction.id}/" class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <a href="/budget/delete-income/${transaction.id}/" class="btn btn-sm btn-outline-danger">
+                                                <i class="fas fa-trash"></i>
+                                            </a>
+                                        `}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        transactionList.appendChild(transactionItem);
+                    });
+                } else {
+                    transactionList.innerHTML = '<div class="text-center py-4"><i class="fas fa-receipt fa-3x text-muted mb-3"></i><p class="text-muted">No transactions found for this period.</p></div>';
+                }
+            } else {
+                console.error('Failed to fetch recent transactions:', response.statusText);
+            }
+        } catch (error) {
+            console.error('Error fetching recent transactions:', error);
+        }
+    }
+
+    // Update recent transactions every 30 seconds
+    updateRecentTransactions();
+    setInterval(updateRecentTransactions, 30000);
 });
 </script>
 {% endblock %}

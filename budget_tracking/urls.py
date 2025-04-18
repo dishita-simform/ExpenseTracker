@@ -23,13 +23,14 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from dj_rest_auth.registration.views import VerifyEmailView, ResendEmailVerificationView
 from dj_rest_auth.views import LoginView, LogoutView, PasswordResetView, PasswordResetConfirmView
 from budget.views import register, custom_logout, custom_password_reset
+from budget_tracking.views import CustomLoginView
 
 urlpatterns = [
-     path('', include('budget.urls')),
+    path('', include('budget.urls')),
     path('admin/', admin.site.urls),
     
     # Web Authentication
-    path('accounts/login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
+    path('accounts/login/', CustomLoginView.as_view(template_name='registration/login.html'), name='login'),
     path('accounts/logout/', custom_logout, name='logout'),
     path('accounts/register/', register, name='register'),
     path('accounts/password-reset/', custom_password_reset, name='password_reset'),

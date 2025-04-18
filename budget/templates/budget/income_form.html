@@ -50,8 +50,7 @@
                         <div class="mb-3">
                             <label for="date" class="form-label">Date</label>
                             <input type="date" class="form-control {% if form.date.errors %}is-invalid{% endif %}" 
-                                   id="date" name="date" value="{{ date }}" 
-                                   max="{{ today }}" required>
+                            id="date" name="date" value="{{ form.date.value|default:today }}" max="{{ today }}" required>
                             {% if form.date.errors %}
                                 <div class="invalid-feedback">
                                     {{ form.date.errors|join:", " }}

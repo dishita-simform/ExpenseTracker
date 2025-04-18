@@ -5,7 +5,7 @@ from email.mime.application import MIMEApplication
 from datetime import datetime, timedelta
 from django.conf import settings
 from django.db.models import Sum, Count
-from budget.models import Transaction, Category
+from budget.models import Transaction
 import io
 from django.contrib.auth import get_user_model
 from reportlab.lib import colors
@@ -26,29 +26,29 @@ def generate_monthly_report_pdf(user):
     today = datetime.now()
     first_day = today.replace(day=1)
     last_day = (first_day + timedelta(days=32)).replace(day=1) - timedelta(days=1)
-    
-    # Get transactions for the current month
+
+    # Re-fetch transactions to ensure the latest data is included
     transactions = Transaction.objects.filter(
         user=user,
         date__range=[first_day, last_day]
     ).select_related('category').order_by('date')
-    
+
     # Calculate summary statistics
     total_amount = transactions.aggregate(total=Sum('amount'))['total'] or 0
     transaction_count = transactions.count()
-    
+
     # Get category-wise breakdown
     category_summary = transactions.values('category__name').annotate(
         total=Sum('amount'),
         count=Count('id')
     ).order_by('-total')
-    
+
     # Create PDF
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter)
     styles = getSampleStyleSheet()
     elements = []
-    
+
     # Add title
     title_style = ParagraphStyle(
         'CustomTitle',
@@ -58,7 +58,7 @@ def generate_monthly_report_pdf(user):
     )
     elements.append(Paragraph(f"Monthly Expense Report - {today.strftime('%B %Y')}", title_style))
     elements.append(Spacer(1, 12))
-    
+
     # Add summary
     elements.append(Paragraph("Summary", styles['Heading2']))
     summary_data = [
@@ -79,7 +79,7 @@ def generate_monthly_report_pdf(user):
     ]))
     elements.append(summary_table)
     elements.append(Spacer(1, 20))
-    
+
     # Add category breakdown
     elements.append(Paragraph("Category Breakdown", styles['Heading2']))
     category_data = [["Category", "Amount", "Transactions"]]
@@ -105,7 +105,7 @@ def generate_monthly_report_pdf(user):
     ]))
     elements.append(category_table)
     elements.append(Spacer(1, 20))
-    
+
     # Add recent transactions
     elements.append(Paragraph("Recent Transactions", styles['Heading2']))
     transaction_data = [["Date", "Category", "Description", "Amount"]]
@@ -131,12 +131,12 @@ def generate_monthly_report_pdf(user):
         ('GRID', (0, 0), (-1, -1), 1, colors.black)
     ]))
     elements.append(trans_table)
-    
+
     # Build PDF
     doc.build(elements)
     pdf_data = buffer.getvalue()
     buffer.close()
-    
+
     return pdf_data
 
 def send_email_with_pdf(subject, body, pdf_data, user):
@@ -266,4 +266,4 @@ Budget Tracker Team"""
             server.quit()
         except Exception as e:
             print(f"Error sending high value alert: {str(e)}")
-            raise 
+            raise
