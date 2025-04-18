@@ -1,104 +1,53 @@
-# ExpenseTracker
+# 💸 ExpenseTracker
 
 A modern, feature-rich expense tracking application built with Django and React.
 
-## Features
+# 🚀 Features
 
-- 📊 Dashboard with expense analytics and visualizations
-- 💰 Track expenses and income
-- 📱 Mobile-friendly responsive design
-- 🔐 Secure authentication with JWT and social login
-- 📈 Budget planning and tracking
-- 📅 Monthly and yearly reports
-- 🔔 Smart notifications and alerts
-- 🌐 RESTful API
-- 🔄 Real-time updates with Celery
-- 🎨 Beautiful UI with Bootstrap 5
+📊 Interactive Dashboard with visual analytics
 
-## Tech Stack
+💰 Expense & Income Tracking
 
-- **Backend**: Django 5.0, Django REST Framework
-- **Database**: PostgreSQL
-- **Cache**: Redis
-- **Task Queue**: Celery
-- **Authentication**: JWT, Social Auth (Google)
-- **Frontend**: Bootstrap 5, FontAwesome
-- **API**: RESTful API with JWT authentication
+📱 Mobile-Friendly responsive design
 
-## Prerequisites
+🔐 Secure Authentication using JWT & Google OAuth
 
-- Python 3.11 or higher
-- PostgreSQL 14
-- Redis
-- Homebrew (for macOS)
+📈 Budget Planning & Management
 
-## Installation
+📅 Monthly & Yearly Reports
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/yourusername/expense-tracker.git
-   cd expense-tracker
-   ```
+🔔 Smart Alerts & Notifications
 
-2. Run the setup script:
-   ```bash
-   chmod +x setup.sh
-   ./setup.sh
-   ```
+🌐 RESTful API integration
 
-3. Configure environment variables:
-   - Copy `.env.example` to `.env`
-   - Update the values in `.env` with your configuration
+🔄 Real-Time Updates with Celery & Redis
 
-4. Start the development server:
-   ```bash
-   python manage.py runserver
-   ```
+🎨 Elegant UI with Bootstrap 5 and FontAwesome
 
-5. Start Celery worker (in a new terminal):
-   ```bash
-   celery -A budget_tracking worker -l info
-   ```
+# 🛠 Tech Stack
 
-6. Start Celery beat (in a new terminal):
-   ```bash
-   celery -A budget_tracking beat -l info
-   ```
+Backend: Django 5.0, Django REST Framework
 
-## API Endpoints
+Frontend: React, Bootstrap 5, FontAwesome
 
-### Authentication
-- `POST /api/auth/register/` - Register a new user
-- `POST /api/auth/login/` - Login with JWT
-- `POST /api/auth/google/login/` - Login with Google
-- `POST /api/token/refresh/` - Refresh JWT token
+Database: PostgreSQL
 
-### Expenses
-- `GET /api/expenses/` - List expenses
-- `POST /api/expenses/` - Create expense
-- `GET /api/expenses/{id}/` - Get expense details
-- `PUT /api/expenses/{id}/` - Update expense
-- `DELETE /api/expenses/{id}/` - Delete expense
+Cache: Redis
 
-### Categories
-- `GET /api/categories/` - List categories
-- `POST /api/categories/` - Create category
-- `GET /api/categories/{id}/` - Get category details
-- `PUT /api/categories/{id}/` - Update category
-- `DELETE /api/categories/{id}/` - Delete category
+Task Queue: Celery
 
-## Contributing
+Authentication: JWT, Google OAuth
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+API: RESTful API with JWT authentication
 
-## License
+# ⚙️ Prerequisites
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Make sure you have the following installed:
 
-## Support
+✅ Python 3.11 or higher
 
-For support, email support@expensetracker.com or open an issue in the repository.
+✅ PostgreSQL 14
+
+✅ Redis
+
+✅ Homebrew (for macOS users only)
