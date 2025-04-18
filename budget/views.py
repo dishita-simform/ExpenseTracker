@@ -1121,6 +1121,7 @@ class CustomPasswordResetForm(PasswordResetForm):
         User = get_user_model()
         if not User.objects.filter(email=email).exists():
             raise forms.ValidationError("There is no user registered with this email address.")
+        
         return email
 
 def custom_password_reset(request):
