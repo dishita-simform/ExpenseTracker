@@ -259,54 +259,65 @@ document.addEventListener('DOMContentLoaded', function() {
     try {
         const expenseDataStr = '{{ expense_data|safe|escapejs }}';
         const expenseData = JSON.parse(expenseDataStr);
-        if (expenseData && expenseData.length > 0) {
-            const ctx = document.getElementById('budgetPieChart').getContext('2d');
-            const chart = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: expenseData.map(function(item) { return item.name; }),
-                    datasets: [{
-                        data: expenseData.map(function(item) { return item.spent; }),
-                        backgroundColor: expenseData.map(function(item) { return item.color; }),
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'right',
-                            labels: {
-                                boxWidth: 12,
-                                padding: 15,
-                                font: {
-                                    size: 12
-                                }
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const value = context.raw;
-                                    const total = context.dataset.data.reduce(function(a, b) { return a + b; }, 0);
-                                    const percentage = ((value / total) * 100).toFixed(1);
-                                    return `₹${value} (${percentage}%)`;
-                                }
+
+        // Updated the pie chart logic to group the same category into one section
+        const groupedExpenseData = {};
+        expenseData.forEach(function(item) {
+            if (groupedExpenseData[item.name]) {
+                groupedExpenseData[item.name].spent += item.spent;
+            } else {
+                groupedExpenseData[item.name] = {
+                    name: item.name,
+                    spent: item.spent,
+                    color: item.color
+                };
+            }
+        });
+
+        const groupedLabels = Object.keys(groupedExpenseData);
+        const groupedData = Object.values(groupedExpenseData).map(function(item) { return item.spent; });
+        const groupedColors = Object.values(groupedExpenseData).map(function(item) { return item.color; });
+
+        const ctx = document.getElementById('budgetPieChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: groupedLabels,
+                datasets: [{
+                    data: groupedData,
+                    backgroundColor: groupedColors,
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            boxWidth: 12,
+                            padding: 15,
+                            font: {
+                                size: 12
                             }
                         }
                     },
-                    cutout: '60%'
-                }
-            });
-            window.expenseChart = chart;
-        } else {
-            // Display a message in the chart container if no data
-            const chartContainer = document.querySelector('.chart-container');
-            if (chartContainer) {
-                chartContainer.innerHTML = '<div class="text-center py-4"><p class="text-muted">No expenses recorded for this period.</p></div>';
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const value = context.raw;
+                                const total = context.dataset.data.reduce(function(a, b) { return a + b; }, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return `₹${value} (${percentage}%)`;
+                            }
+                        }
+                    }
+                },
+                cutout: '60%'
             }
-        }
+        });
+        window.expenseChart = chart;
     } catch (error) {
         console.error('Error initializing chart:', error);
         // Display error message in the chart container
