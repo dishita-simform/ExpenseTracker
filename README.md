@@ -1,6 +1,6 @@
 # 💸 ExpenseTracker
 
-A modern, feature-rich expense tracking application built with Django and React.
+A modern, feature-rich expense tracking application built with Django & DRF
 
 # 🚀 Features
 
@@ -26,9 +26,9 @@ A modern, feature-rich expense tracking application built with Django and React.
 
 # 🛠 Tech Stack
 
-Backend: Django 5.0, Django REST Framework
+Backend: Django 5.0, Django REST Framework, DRF
 
-Frontend: React, Bootstrap 5, FontAwesome
+Frontend: Bootstrap 5, FontAwesome
 
 Database: PostgreSQL
 
