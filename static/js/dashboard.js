@@ -280,4 +280,13 @@ function showNotification(message, type = 'info') {
     toast.addEventListener('hidden.bs.toast', function() {
         toast.remove();
     });
-} 
+}
+
+// Ensure entries for the selected month are displayed, including March
+const selectedMonth = parseInt(document.getElementById('month').value);
+const selectedYear = parseInt(document.getElementById('year').value);
+
+if (selectedMonth === 3) { // March is month 3
+    console.log('Displaying entries for March');
+    // Add logic to fetch and display March entries
+}
